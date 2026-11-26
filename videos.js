@@ -9,7 +9,7 @@
  *   check   'checked' = length confirmed from a source
  *           'est'     = my best estimate (the app re-measures the real length
  *                       in your browser once the page is served over http/https)
- *   themes  any of: existentialism, mortality, stoicism, meaning, identity, absurd
+ *   themes  any of: existentialism, mortality, stoicism, meaning, identity, absurd, evil, love
  *   blurb   one neutral line about the idea (not a claim about the video's script)
  *   ask     the question to carry through the day
  *
@@ -63,48 +63,11 @@ window.WANDERSPACE_VIDEOS = [
 
   // ── existentialism & the absurd ──────────────────────────────────────────
   {
-    id: 'MBRqu0YOH14', title: 'Optimistic Nihilism', by: 'Kurzgesagt – In a Nutshell',
-    secs: 446, check: 'checked', themes: ['meaning', 'absurd'],
-    blurb: "Kurzgesagt's answer to existential dread: if nothing is written in the stars, you get to write it.",
-    ask: 'If nothing is pre-written, what do you want to build with your time?'
-  },
-  {
-    id: 'vPtzpjC7TF4', title: 'Is life meaningless? And other absurd questions', by: 'TED-Ed',
-    secs: 330, check: 'est', themes: ['absurd', 'meaning', 'existentialism'],
-    blurb: "A short introduction to Camus: the absurd, and why he thought revolt beats resignation.",
-    ask: 'What would still make life worth living without a grand explanation?'
-  },
-  {
-    id: 'jQOfbObFOCw', title: 'PHILOSOPHY – Albert Camus', by: 'The School of Life',
-    secs: 480, check: 'est', themes: ['absurd', 'existentialism', 'meaning'],
-    blurb: 'Camus on the gap between our hunger for meaning and a silent universe.',
-    ask: 'Which part of your routine would you keep if you decided to find it meaningful?'
-  },
-  {
     id: 'vyZK8rkeqPM', title: 'Sisyphus (1974)', by: 'Marcell Jankovics',
     secs: 150, check: 'est', themes: ['absurd', 'existentialism'],
     blurb: "Jankovics' Oscar-nominated animation of the myth Camus turned into the symbol of the absurd.",
     ask: 'What boulder are you pushing, and did you choose it?'
   },
-  {
-    id: 'D9JCwkx558o', title: 'PHILOSOPHY – Søren Kierkegaard', by: 'The School of Life',
-    secs: 440, check: 'est', themes: ['existentialism', 'identity'],
-    blurb: 'Kierkegaard on anxiety, freedom, and the fact that every real choice closes other doors.',
-    ask: 'Which possibility are you keeping alive by refusing to choose?'
-  },
-  {
-    id: '3bQsZxDQgzU', title: 'PHILOSOPHY – Sartre', by: 'The School of Life',
-    secs: 480, check: 'est', themes: ['existentialism', 'identity'],
-    blurb: 'Sartre on freedom and responsibility: we are not handed a finished identity, we make one.',
-    ask: 'Where are you treating a role or a habit as if it were your whole identity?'
-  },
-  {
-    id: 'Br1sGrA7XTU', title: 'PHILOSOPHY – Heidegger', by: 'The School of Life',
-    secs: 480, check: 'est', themes: ['existentialism', 'meaning'],
-    blurb: "Heidegger's attempt to wake us up to the strangeness of being here at all.",
-    ask: 'What have you stopped noticing simply because it is always there?'
-  },
-
   // ── mortality ────────────────────────────────────────────────────────────
   {
     id: 'aQ5upMz0_ig', title: 'Alan Watts – Think of Nothing', by: '44connected',
@@ -112,13 +75,6 @@ window.WANDERSPACE_VIDEOS = [
     blurb: 'An animation set to Alan Watts on what death might be like, and the oddness of non-existence.',
     ask: 'What do you imagine non-existence to be, and does that change how you spend today?'
   },
-  {
-    id: 'E5f5smh7Keo', title: "PHILOSOPHY – History: Epicurus' Cure for Unhappiness", by: 'Wireless Philosophy',
-    secs: 420, check: 'est', themes: ['mortality', 'meaning', 'stoicism'],
-    blurb: "Epicurus' four-part cure for unhappiness, including why death is nothing to worry about.",
-    ask: 'Which fear on your list loses its force when you say it out loud?'
-  },
-
   // ── meaning & the good life ──────────────────────────────────────────────
   {
     id: 'khOaAHK7efc', title: 'What If Money Was No Object? – Alan Watts', by: 'T&H – Inspiration & Motivation',
@@ -126,32 +82,7 @@ window.WANDERSPACE_VIDEOS = [
     blurb: "Alan Watts asks what you'd do with your life if money weren't the point.",
     ask: "If money weren't a factor, what would you spend a year doing?"
   },
-  {
-    id: 'j_7deR0idvs', title: "Aristotle on 'Flourishing'", by: 'BBC Radio 4',
-    secs: 300, check: 'est', themes: ['meaning'],
-    blurb: "Aristotle's idea of a good life as flourishing, not just feeling good.",
-    ask: 'What would flourishing look like for you this year, apart from comfort?'
-  },
-  {
-    id: '-oJs5u_GAYA', title: 'PHILOSOPHY – The Good Life: Plato', by: 'Wireless Philosophy',
-    secs: 420, check: 'est', themes: ['meaning'],
-    blurb: "Plato's answer to what makes a life good.",
-    ask: 'Which of your desires are you in charge of, and which are in charge of you?'
-  },
-
   // ── stoicism ─────────────────────────────────────────────────────────────
-  {
-    id: 'R9OCA6UFE-0', title: 'The philosophy of Stoicism – Massimo Pigliucci', by: 'TED-Ed',
-    secs: 330, check: 'checked', themes: ['stoicism'],
-    blurb: 'A five-minute tour of Stoicism: what is up to us, what is not, and how to live well anyway.',
-    ask: 'What are you worrying about today that is genuinely outside your control?'
-  },
-  {
-    id: 'yu7n0XzqtfA', title: 'PHILOSOPHY – The Stoics', by: 'The School of Life',
-    secs: 540, check: 'est', themes: ['stoicism'],
-    blurb: 'Alain de Botton on the Stoics and their practical training in calm.',
-    ask: 'What is one thing you could meet with calm today instead of complaint?'
-  },
   {
     id: 'r7zThgJAAPg', title: 'How Marcus Aurelius Stayed Calm in Chaos | 3 Stoic Methods', by: 'Einzelgänger',
     secs: 720, check: 'est', themes: ['stoicism'],
@@ -187,5 +118,67 @@ window.WANDERSPACE_VIDEOS = [
     secs: 720, check: 'est', themes: ['stoicism', 'identity'],
     blurb: 'A Marcus Aurelius essay on success and staying clear of other people’s noise.',
     ask: 'Whose opinion of your life are you still performing for?'
+  },
+
+  // ── added from your list: stories, characters, symbolism ─────────────────
+  {
+    id: 'IVTyVuRw340', title: 'Why Time Heals All Wounds', by: 'Boklosophy',
+    secs: null, check: null, themes: ['meaning', 'identity'],
+    blurb: 'A video essay on why time heals, and what actually changes while it does.',
+    ask: 'What are you waiting for time to do that only you can do?'
+  },
+  {
+    id: 'jTRnBwCXptI', title: 'The cure to feeling lost in life', by: 'Verse Creates',
+    secs: null, check: null, themes: ['meaning', 'identity'],
+    blurb: 'A video essay on feeling lost and what might end it.',
+    ask: 'If you stopped looking for the answer, what would you do tomorrow?'
+  },
+  {
+    id: 'THrsWNBIXqo', title: 'The Happiness of the Pursuit', by: 'imdanjo',
+    secs: null, check: null, themes: ['meaning'],
+    blurb: 'A video essay on finding happiness in the chase rather than the arrival.',
+    ask: 'What are you pursuing right now that you would miss if you caught it?'
+  },
+  {
+    id: 'OHlRzhjjfp0', title: 'What Happens When the VILLAIN Wins?', by: 'scrawls',
+    secs: null, check: null, themes: ['evil', 'meaning'],
+    blurb: 'A video essay on stories where the villain wins.',
+    ask: 'What would the story you are in look like if the villain won?'
+  },
+  {
+    id: 'JMtomav6tjo', title: '"What Happens When the VILLAIN is Right?"', by: 'scrawls',
+    secs: null, check: null, themes: ['evil', 'identity'],
+    blurb: 'A video essay on villains who have a point.',
+    ask: 'When did someone you disagreed with turn out to be partly right?'
+  },
+  {
+    id: 'udYWLf4iHF4', title: 'The Exhaustion of Trying to Make Life Meaningful', by: "Apollo's Journal",
+    secs: null, check: null, themes: ['meaning', 'absurd'],
+    blurb: 'A video essay on how tiring it is to keep making life mean something.',
+    ask: 'What would you let go of if life did not have to be meaningful?'
+  },
+  {
+    id: 'm4XhrIjfDdA', title: 'Why Evil Is Necessary', by: 'Kaze',
+    secs: null, check: null, themes: ['evil', 'meaning'],
+    blurb: 'A video essay on the role evil plays in stories and in life.',
+    ask: 'What good in your life only exists because of something bad?'
+  },
+  {
+    id: 'OFu_dZpNjl0', title: 'Greatness Is Actually Simple', by: 'Kaze',
+    secs: null, check: null, themes: ['meaning', 'identity'],
+    blurb: 'A video essay on what greatness is made of.',
+    ask: 'What is the simplest version of what you are trying to become?'
+  },
+  {
+    id: 'pt7RDtHZQoU', title: 'The Mind of a Genius', by: 'Bygone Philosophy',
+    secs: null, check: null, themes: ['identity'],
+    blurb: 'A video essay on the mind of a genius.',
+    ask: 'What would you be doing if you stopped comparing yourself to the best?'
+  },
+  {
+    id: '8Krn_7GltBY', title: 'love cannot fix you', by: 'Sisyphus 55',
+    secs: null, check: null, themes: ['love', 'identity'],
+    blurb: 'A video essay on love and what it can and cannot repair.',
+    ask: 'What are you hoping someone else will fix in you?'
   }
 ];

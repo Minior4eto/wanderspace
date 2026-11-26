@@ -9,14 +9,15 @@
   const RAW = Array.isArray(window.WANDERSPACE_VIDEOS) ? window.WANDERSPACE_VIDEOS : [];
   const VIDEOS = RAW.map((v, i) => Object.assign({ n: i + 1, blocked: false, dead: false, noEmbed: false }, v));
   const BY_ID = new Map(VIDEOS.map(v => [v.id, v]));
-  const THEME_ORDER = ['existentialism', 'mortality', 'stoicism', 'meaning', 'identity', 'absurd'];
+  const THEME_ORDER = ['existentialism', 'mortality', 'stoicism', 'meaning', 'identity', 'absurd', 'evil', 'love'];
   const IS_FILE = location.protocol === 'file:';
 
   const KEYS = {
     saved: 'wanderspace:saved:v1',
     watched: 'wanderspace:watched:v1',
     notes: 'wanderspace:notes:v1',
-    theme: 'wanderspace:theme:v2'
+    theme: 'wanderspace:theme:v2',
+    lens: 'wanderspace:len:v1'
   };
 
   /* ──────────────────────────── helpers ─────────────────────────── */
@@ -38,6 +39,9 @@
   const saved = new Set(load(KEYS.saved, []));
   const watched = new Set(load(KEYS.watched, []));
   const notes = load(KEYS.notes, {}) || {};
+  /* lengths measured in an earlier visit, so a video's place in the daily order never depends on timing */
+  const lens = load(KEYS.lens, {}) || {};
+  VIDEOS.forEach(v => { if (v.secs === null && lens[v.id] > 0) { v.secs = lens[v.id]; v.check = 'checked'; } });
 
   const state = {
     current: null,
@@ -513,6 +517,7 @@
       else if (res.error === 101 || res.error === 150) { v.noEmbed = true; }
     } else if (res.secs) {
       v.secs = res.secs; v.check = 'checked';
+      lens[v.id] = res.secs; store(KEYS.lens, lens);
       if (res.secs > MAX_SECS) { v.blocked = true; why = 'OVER 25 MIN'; }
     }
     updateCard(v);
@@ -526,7 +531,7 @@
   }
 
   /* ─────────────────────────────── picking ──────────────────────── */
-  const DAILY = seededShuffle(VIDEOS.filter(v => v.secs !== null && v.secs <= MAX_SECS).map(v => v.id), 7919);
+  const DAILY = seededShuffle(VIDEOS.filter(v => v.secs === null || v.secs <= MAX_SECS).map(v => v.id), 7919);
 
   function dailyPick(d = new Date()) {
     if (!DAILY.length) return null;
