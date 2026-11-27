@@ -45,11 +45,15 @@ Use `secs:null` if you don't know the length.
 
 `.github/workflows/discover.yml` runs every day at 06:17 UTC and starts from channels you approved, not from keywords.
 
-- **videos** (default): takes recent uploads from approved channels, keeps those 4 to 25 minutes long with a good like-to-view ratio, at most 2 per channel and 3 per run, and commits them to `main`. Vercel redeploys on its own.
-- **expand**: looks for similar channels, drops big ones, content mills and channels full of shorts, streams and playthroughs, and opens a pull request with `channel-candidates.md`. Nothing changes on the site. Approve a channel by adding its ID to `extraChannelIds` (or its name to `approvedChannels` if it already has a video on the shelf).
-- Run either by hand: Actions → Discover videos → Run workflow. Tick `dry_run` to only print the result.
-- Needs the repo secret `YOUTUBE_API_KEY`, and Settings → Actions → General → Workflow permissions set to read and write.
-- Steer it in `channels.json`: `blockedChannels`, `blockedWords`, `blockedVideos`, `junkTitleWords` and the `limits`.
+1. It takes recent uploads from approved channels that are 4 to 25 minutes long, embeddable and well liked.
+2. A model (GitHub Models, free with the workflow's own token) then reads each video's title, channel and description and scores it from 0 to 10 against `taste.json`: the rule, what to reject, and videos you loved and hated. Only 8 and up pass. If the model is unavailable, nothing is added.
+3. At most 2 per channel and 3 per run are added. With `"autoPublish": false` in `channels.json` they arrive as a pull request you can preview; set it to `true` to publish straight to `main`.
+
+**Teaching it:** add a video you loved to `good` in `taste.json`, or one you hated to `bad` (with a `why`). It reads these every run.
+
+- **expand** mode looks for similar channels, drops big ones, content mills and channels full of shorts and streams, and opens a pull request with `channel-candidates.md`. Approve a channel by adding its ID to `extraChannelIds`.
+- Run by hand: Actions → Discover videos → Run workflow. Tick `dry_run` to print every verdict without changing anything.
+- Needs the repo secret `YOUTUBE_API_KEY` and workflow permissions set to read and write.
 
 ## Keys
 

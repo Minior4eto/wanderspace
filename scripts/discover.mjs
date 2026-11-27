@@ -6,6 +6,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { clip, judge, PASS_SCORE } from './judge.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MIN_SECS = 240;   // 4 minutes
@@ -23,16 +24,13 @@ const THEME_WORDS = {
   love: ['love', 'heart', 'loneliness']
 };
 
+export { clip };
 export function secsOf(iso = '') {
   const m = /PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/.exec(iso);
   if (!m) return 0;
   return (+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0);
 }
 
-export const clip = (s, n) => {
-  const t = (s || '').replace(/\s+/g, ' ').trim();
-  return t.length <= n ? t : t.slice(0, n - 1).replace(/\s+\S*$/, '') + '…';
-};
 
 const textOf = v => `${v.snippet?.title ?? ''} ${v.snippet?.description ?? ''}`.toLowerCase();
 
@@ -67,16 +65,20 @@ export function isCandidate(v, cfg, known) {
   return true;
 }
 
-// Best like ratio first, at most `perChannelPerRun` per channel, at most `limit` overall.
-export function pickNew(details, cfg, known, limit = cfg.limits.maxPerRun) {
-  const ok = details.filter(v => isCandidate(v, cfg, known)).sort((a, b) => likeRatio(b) - likeRatio(a));
+// Everything that passes the cheap filters, best like ratio first.
+export function rankCandidates(details, cfg, known) {
+  return details.filter(v => isCandidate(v, cfg, known)).sort((a, b) => likeRatio(b) - likeRatio(a));
+}
+
+// Keeps the order given, at most `perChannelPerRun` per channel and `limit` overall.
+export function capPerChannel(items, cfg, limit = cfg.limits.maxPerRun) {
   const perChannel = new Map();
   const out = [];
-  for (const v of ok) {
-    const c = v.snippet.channelId || v.snippet.channelTitle;
+  for (const it of items) {
+    const c = it.v.snippet.channelId || it.v.snippet.channelTitle;
     if ((perChannel.get(c) || 0) >= cfg.limits.perChannelPerRun) continue;
     perChannel.set(c, (perChannel.get(c) || 0) + 1);
-    out.push({ v, secs: secsOf(v.contentDetails.duration) });
+    out.push(it);
     if (out.length >= limit) break;
   }
   return out;
@@ -128,29 +130,6 @@ export function appendEntries(src, entries) {
   let head = src.slice(0, end).replace(/\s*$/, '');
   if (!head.endsWith(',')) head += ',';
   return `${head}\n${entries.join(',\n')}${src.slice(end)}`;
-}
-
-async function writeCopy(v, token) {
-  const fallback = fallbackCopy(v);
-  if (!token) return fallback;
-  try {
-    const r = await fetch('https://models.github.ai/inference/chat/completions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'openai/gpt-4o-mini',
-        messages: [
-          { role: 'system', content: 'Reply with JSON only: {"blurb": one neutral sentence under 20 words saying what the video explores, no hype, "ask": one reflective question under 20 words}.' },
-          { role: 'user', content: `Title: ${v.snippet.title}\nChannel: ${v.snippet.channelTitle}\nDescription: ${clip(v.snippet.description, 800)}` }
-        ]
-      })
-    });
-    if (!r.ok) return fallback;
-    const j = JSON.parse((await r.json()).choices[0].message.content.replace(/```json|```/g, '').trim());
-    return j.blurb && j.ask ? { blurb: clip(j.blurb, 200), ask: clip(j.ask, 200) } : fallback;
-  } catch {
-    return fallback;
-  }
 }
 
 const chunk = (a, n) => Array.from({ length: Math.ceil(a.length / n) }, (_, i) => a.slice(i * n, i * n + n));
@@ -240,12 +219,31 @@ async function main() {
     details.push(...(r.items ?? []));
   }
   const maxAdd = +process.env.MAX_PER_RUN || cfg.limits.maxPerRun;
-  const picks = pickNew(details, cfg, known, Math.min(maxAdd, room));
-  if (!picks.length) { console.log('Nothing new passed the filters.'); return; }
+  const taste = JSON.parse(fs.readFileSync(path.join(ROOT, 'taste.json'), 'utf8'));
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) { console.log('No GITHUB_TOKEN, so nothing can be judged. Adding nothing.'); return; }
+
+  const ranked = rankCandidates(details, cfg, known).slice(0, +process.env.JUDGE_LIMIT || 60);
+  console.log(`${ranked.length} video(s) passed the cheap filters; asking the judge.`);
+  const accepted = [];
+  let answered = 0;
+  for (const v of ranked) {
+    const verdict = await judge(v, taste, token);
+    if (!verdict) { console.log(`? ${v.snippet.channelTitle} — ${v.snippet.title}: no verdict`); continue; }
+    answered++;
+    const tag = verdict.score >= PASS_SCORE ? 'KEEP' : 'drop';
+    console.log(`${tag} ${verdict.score}/10  ${v.snippet.channelTitle} — ${v.snippet.title}  (${verdict.reason})`);
+    if (verdict.score >= PASS_SCORE) accepted.push({ v, verdict, secs: secsOf(v.contentDetails.duration) });
+  }
+  if (!answered) { console.log('The judge gave no answers, so nothing is added.'); return; }
+  accepted.sort((a, b) => b.verdict.score - a.verdict.score || likeRatio(b.v) - likeRatio(a.v));
+  const picks = capPerChannel(accepted, cfg, Math.min(maxAdd, room));
+  if (!picks.length) { console.log('Nothing was good enough.'); return; }
   const entries = [];
-  for (const { v, secs } of picks) {
-    entries.push(entryFor(v, secs, await writeCopy(v, process.env.GITHUB_TOKEN)));
-    console.log(`+ ${v.id}  ${v.snippet.channelTitle} — ${v.snippet.title} (${Math.round(secs / 60)} min, ${(likeRatio(v) * 100).toFixed(1)}% likes)`);
+  for (const { v, secs, verdict } of picks) {
+    const copy = verdict.blurb && verdict.ask ? { blurb: verdict.blurb, ask: verdict.ask } : fallbackCopy(v);
+    entries.push(entryFor(v, secs, copy));
+    console.log(`+ ${v.id}  ${v.snippet.channelTitle} — ${v.snippet.title} (${Math.round(secs / 60)} min, score ${verdict.score})`);
   }
   if (DRY) { console.log('Dry run: videos.js not changed.'); return; }
   fs.writeFileSync(file, appendEntries(src, entries));

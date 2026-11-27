@@ -1,0 +1,38 @@
+{
+  "rule": "The video's main subject must be a reflective, philosophical question about being human (meaning, death, loneliness, identity, love, evil, free will, time, purpose, how to live), explored through a story, character, artwork, film, book, anime or personal essay. Philosophy has to be the point, not decoration on top of something else.",
+  "rejectIf": [
+    "it is mainly about gaming, a game community, a fandom, a streamer or YouTuber, internet drama, memes or satire",
+    "it is news, trivia, history facts, a how-to, a ranking, a review or a recommendation list",
+    "it is a plain explainer or lecture about a philosopher or a school of thought (Stoicism, Nietzsche, Camus 'explained')",
+    "it is mainly social, political or gender commentary on a text",
+    "it is motivational, self-help or productivity advice",
+    "it is a stick-figure or stock-footage mass-produced video"
+  ],
+  "good": [
+    { "title": "What if you're not special at all?", "channel": "Alastair" },
+    { "title": "My Favorite Depictions of Death", "channel": "Pancake" },
+    { "title": "Why Time Heals All Wounds", "channel": "Boklosophy" },
+    { "title": "The cure to feeling lost in life", "channel": "Verse Creates" },
+    { "title": "The Happiness of the Pursuit", "channel": "imdanjo" },
+    { "title": "What Happens When the VILLAIN Wins?", "channel": "scrawls" },
+    { "title": "What Happens When the VILLAIN is Right?", "channel": "scrawls" },
+    { "title": "The Exhaustion of Trying to Make Life Meaningful", "channel": "Apollo's Journal" },
+    { "title": "Why Evil Is Necessary", "channel": "Kaze" },
+    { "title": "Greatness Is Actually Simple", "channel": "Kaze" },
+    { "title": "The Mind of a Genius", "channel": "Bygone Philosophy" },
+    { "title": "love cannot fix you", "channel": "Sisyphus 55" }
+  ],
+  "bad": [
+    { "title": "Why the Dream SMP's Storytelling is GENIUS.", "channel": "scrawls", "why": "gaming community" },
+    { "title": "Dream SMP Apologists Be Like... | SATIRE", "channel": "scrawls", "why": "satire about a gaming community" },
+    { "title": "Grave Robbing for Dummies", "channel": "Pancake", "why": "trivia, not philosophy" },
+    { "title": "A YouTuber Just Made An Anime", "channel": "imdanjo", "why": "YouTube/anime news" },
+    { "title": "When Fans Saved A Manga", "channel": "imdanjo", "why": "fandom news" },
+    { "title": "The Horror of Being Human | Society and Gender in Franz Kafka Metamorphosis and Stepford Wives 1975", "channel": "calliope", "why": "disliked" },
+    { "title": "Why Keep Going? | Albert Camus & The Absurd Explained", "channel": "Shadow Loom", "why": "explainer, mass-produced" },
+    { "title": "Berserk Explains Nietzsche Better Than Philosophy Books", "channel": "Anime Jungle", "why": "clickbait explainer" },
+    { "title": "How Filmmakers Create Depth — Symbolism Explained", "channel": "StudioBinder", "why": "film school explainer" },
+    { "title": "How Marcus Aurelius Stayed Calm in Chaos | 3 Stoic Methods", "channel": "Einzelgänger", "why": "generic stoic self-help" },
+    { "title": "DAREDEVIL: The Stoic Duty of Suffering [Stoicism & Justice]", "channel": "THE PHILOSOPHY OF POP CULTURE", "why": "disliked" }
+  ]
+}

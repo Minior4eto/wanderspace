@@ -49,9 +49,13 @@ jobs:
       - name: Check the file still loads
         run: node -e "global.window={};require('./videos.js');console.log('videos.js loads, ' + window.WANDERSPACE_VIDEOS.length + ' videos')"
 
-      # New uploads from channels you approved go straight onto the site.
+      - name: Decide how to publish
+        id: gate
+        run: echo "auto=$(node -p "require('./channels.json').autoPublish === true")" >> "$GITHUB_OUTPUT"
+
+      # With autoPublish on in channels.json, judged videos go straight onto the site.
       - name: Publish new videos
-        if: ${{ (inputs.mode || 'videos') == 'videos' }}
+        if: ${{ (inputs.mode || 'videos') == 'videos' && steps.gate.outputs.auto == 'true' }}
         run: |
           if git diff --quiet -- videos.js; then
             echo "No changes."
@@ -59,13 +63,13 @@ jobs:
           fi
           git config user.name "wanderspace-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -am "Add new videos from approved channels"
+          git commit -am "Add new videos"
           git pull --rebase origin main
           git push
 
-      # New channels are only suggestions, so they go to a pull request.
-      - name: Open a pull request with channel suggestions
-        if: ${{ inputs.mode == 'expand' }}
+      # Otherwise (and for channel suggestions) the result goes to a pull request you can look at first.
+      - name: Open a pull request to review
+        if: ${{ !((inputs.mode || 'videos') == 'videos' && steps.gate.outputs.auto == 'true') }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -78,9 +82,9 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"
           git add -A
-          git commit -m "Channel suggestions to review"
+          git commit -m "Discovery: picks to review"
           git push -u origin "$branch"
           gh pr create --base main --head "$branch" \
-            --title "Channel suggestions" \
-            --body "Nothing here changes the site. Tell Claude which channels to approve." \
+            --title "Picks to review" \
+            --body "Nothing is live until you merge. Vercel builds a preview of this branch so you can see the picks on the site first. Tell Claude which ones to drop." \
             || echo "Open the pull request here: https://github.com/${{ github.repository }}/compare/main...$branch"
