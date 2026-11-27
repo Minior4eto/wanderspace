@@ -166,5 +166,49 @@ window.WANDERSPACE_VIDEOS = [
     blurb: "Unplugging from the noise and finding clarity in the quiet, stepping away from the chaos to reconnect with what matters",
     ask: "What would you keep if you stopped trying to be impressive?",
     lang: "en"
+  },
+  {
+    id: "yVN7qBv3kf8",
+    title: "The pain of becoming who you really are",
+    by: "Alastair",
+    secs: 501,
+    check: "checked",
+    themes: ["identity"],
+    blurb: "The video explores the painful necessity of shedding past identities to become your true self.",
+    ask: "What version of yourself did you have to abandon to become who you are now?",
+    lang: "en"
+  },
+  {
+    id: "PJ_rGO7wdew",
+    title: "the fear of enjoying your life",
+    by: "Sisyphus 55",
+    secs: 615,
+    check: "checked",
+    themes: ["absurd"],
+    blurb: "An exploration of why we subconsciously fear and sabotage our own happiness.",
+    ask: "Why do you feel guilty when you finally allow yourself to be happy?",
+    lang: "en"
+  },
+  {
+    id: "B42k2y8m0MA",
+    title: "My Favorite Depictions of Angels",
+    by: "Pancake",
+    secs: 1432,
+    check: "checked",
+    themes: ["identity"],
+    blurb: "An exploration of how different films and stories portray angels and the divine.",
+    ask: "What do our cinematic portrayals of angels reveal about human desires?",
+    lang: "en"
+  },
+  {
+    id: "TXDMcpYyIoY",
+    title: "Two Unique Depictions of Death",
+    by: "Pancake",
+    secs: 1464,
+    check: "checked",
+    themes: ["mortality"],
+    blurb: "This video examines two distinct artistic interpretations of death through various films and stories.",
+    ask: "How does personifying death change the way we fear or accept it?",
+    lang: "en"
   }
 ];
