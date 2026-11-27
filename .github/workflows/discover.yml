@@ -44,7 +44,8 @@ jobs:
           MODE: ${{ inputs.mode || 'videos' }}
           MAX_PER_RUN: ${{ inputs.max || '3' }}
           DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
-        run: node scripts/discover.mjs
+        shell: bash
+        run: node scripts/discover.mjs 2>&1 | tee "$RUNNER_TEMP/run.log"
 
       - name: Check the file still loads
         run: node -e "global.window={};require('./videos.js');console.log('videos.js loads, ' + window.WANDERSPACE_VIDEOS.length + ' videos')"
@@ -88,3 +89,18 @@ jobs:
             --title "Picks to review" \
             --body "Nothing is live until you merge. Vercel builds a preview of this branch so you can see the picks on the site first. Tell Claude which ones to drop." \
             || echo "Open the pull request here: https://github.com/${{ github.repository }}/compare/main...$branch"
+
+      # Keeps the last run's log on its own branch so it can be read without opening Actions.
+      - name: Save the log
+        if: ${{ always() }}
+        continue-on-error: true
+        run: |
+          cp "$RUNNER_TEMP/run.log" "$RUNNER_TEMP/keep.log" || echo "no log" > "$RUNNER_TEMP/keep.log"
+          git config user.name "wanderspace-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -q --orphan bot-log
+          git rm -rfq . || true
+          cp "$RUNNER_TEMP/keep.log" last-run.log
+          git add last-run.log
+          git commit -qm "Log of run ${{ github.run_number }}"
+          git push -f origin bot-log
