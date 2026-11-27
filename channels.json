@@ -12,7 +12,14 @@
     "Pancake",
     "Gnooki"
   ],
-  "extraChannelIds": [],
+  "extraChannelIds": [
+    "UC4N6SMO5H7O3PtvCTgx03CQ",
+    "UCQXRb7cKXvg2WQucwk9HKbA",
+    "UCafMyiPeOQs90AtRc7EK1Sg",
+    "UCqgh7QNlVV8kv3LBTJZYWrg",
+    "UC6n0dp42Pjlcaxm0XLoDWbA",
+    "UC9-8R-R0iGtcUE6V0R2L2tg"
+  ],
   "expandQueries": [
     "video essay philosophy characters",
     "video essay villain meaning",
@@ -24,7 +31,7 @@
   ],
   "limits": {
     "perChannelPerRun": 2,
-    "maxPerRun": 8,
+    "maxPerRun": 3,
     "minViews": 2000,
     "minLikeRatio": 0.02,
     "candidateMinSubs": 1500,
@@ -79,5 +86,30 @@
     "Tkaheggogm0",
     "KDsdLKDHIWI",
     "TNg4tXG5XNw"
+  ],
+  "extraChannelNotes": {
+    "UC4N6SMO5H7O3PtvCTgx03CQ": "CiderThoughts",
+    "UCQXRb7cKXvg2WQucwk9HKbA": "calliope",
+    "UCafMyiPeOQs90AtRc7EK1Sg": "Zelly",
+    "UCqgh7QNlVV8kv3LBTJZYWrg": "The Film Essay",
+    "UC6n0dp42Pjlcaxm0XLoDWbA": "ARTILOGOS",
+    "UC9-8R-R0iGtcUE6V0R2L2tg": "Essayist314"
+  },
+  "junkTitleWords": [
+    "#shorts",
+    "#short",
+    "livestream",
+    "live stream",
+    "stream archive",
+    "playthrough",
+    "gameplay",
+    "review",
+    "trailer",
+    "unboxing",
+    "playlist",
+    "sleep audio",
+    "part 1",
+    "part 2",
+    "part 3"
   ]
 }

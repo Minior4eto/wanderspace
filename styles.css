@@ -56,6 +56,8 @@ body.no-webgl #bg { background: radial-gradient(ellipse 55% 60% at 62% 50%, colo
 .circle .dot { width: 16px; height: 16px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 70%, transparent); }
 .circle.small { width: 34px; height: 34px; font-size: 20px; line-height: 1; }
 @keyframes rot { to { transform: rotate(360deg); } }
+#btn-back.spin { animation: nudge .5s ease; }
+@keyframes nudge { 40% { transform: translateX(-4px); } }
 #btn-refresh.spin svg, #btn-refresh-2.spin .spin-ico { animation: rot .7s cubic-bezier(.3,.7,.2,1); }
 
 .theme-panel { position: absolute; top: 80px; right: 24px; width: 292px; padding: 18px; border: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 88%, #0a0a0a); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); pointer-events: auto; z-index: 3; animation: pop .22s ease both; }

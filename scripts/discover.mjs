@@ -96,6 +96,14 @@ export function channelOk(ch, cfg, approved, now = Date.now()) {
   return vids / ageDays <= L.candidateMaxUploadsPerDay;
 }
 
+// Share of a channel's recent titles that look like shorts, streams, playthroughs, reviews...
+export function junkShare(titles, cfg) {
+  if (!titles.length) return 1;
+  const words = (cfg.junkTitleWords || []).map(w => w.toLowerCase());
+  const bad = titles.filter(t => words.some(w => t.toLowerCase().includes(w)));
+  return bad.length / titles.length;
+}
+
 export function fallbackCopy(v) {
   const first = (v.snippet?.description || '').split(/[.\n]/)[0].trim();
   return {
@@ -195,18 +203,20 @@ async function main() {
       const r = await yt('channels', { part: 'snippet,contentDetails,statistics', id: ids.join(','), maxResults: '50' });
       pool.push(...(r.items ?? []));
     }
-    const good = pool.filter(ch => channelOk(ch, cfg, approved));
-    const lines = ['# Channel candidates', '', 'Mid-size channels that are not content mills. Tell Claude which to approve; the rest stay out.', ''];
-    for (const ch of good) {
+    const good = [];
+    const lines = ['# Channel candidates', '', 'Mid-size channels that are not content mills and whose recent uploads are mostly essays. Tell Claude which to approve.', ''];
+    for (const ch of pool.filter(ch => channelOk(ch, cfg, approved))) {
       const up = ch.contentDetails?.relatedPlaylists?.uploads;
       let titles = [];
       if (up) {
         try {
-          const items = (await yt('playlistItems', { part: 'snippet', playlistId: up, maxResults: '5' })).items ?? [];
+          const items = (await yt('playlistItems', { part: 'snippet', playlistId: up, maxResults: '10' })).items ?? [];
           titles = items.map(i => i.snippet.title);
         } catch { /* skip */ }
       }
-      lines.push(`## ${ch.snippet.title}`, `https://www.youtube.com/channel/${ch.id}  ·  ${ch.statistics.subscriberCount} subs  ·  ${ch.statistics.videoCount} videos`, ...titles.map(t => `- ${t}`), '');
+      if (junkShare(titles, cfg) >= 0.3) continue;   // mostly shorts, streams, playthroughs, reviews
+      good.push(ch);
+      lines.push(`## ${ch.snippet.title}`, `https://www.youtube.com/channel/${ch.id}  ·  ${ch.statistics.subscriberCount} subs  ·  ${ch.statistics.videoCount} videos`, ...titles.slice(0, 5).map(t => `- ${t}`), '');
     }
     console.log(lines.join('\n'));
     if (!DRY) fs.writeFileSync(path.join(ROOT, 'channel-candidates.md'), lines.join('\n'));
@@ -229,7 +239,8 @@ async function main() {
     const r = await yt('videos', { part: 'snippet,contentDetails,status,statistics', id: ids.join(','), maxResults: '50' });
     details.push(...(r.items ?? []));
   }
-  const picks = pickNew(details, cfg, known, Math.min(cfg.limits.maxPerRun, room));
+  const maxAdd = +process.env.MAX_PER_RUN || cfg.limits.maxPerRun;
+  const picks = pickNew(details, cfg, known, Math.min(maxAdd, room));
   if (!picks.length) { console.log('Nothing new passed the filters.'); return; }
   const entries = [];
   for (const { v, secs } of picks) {

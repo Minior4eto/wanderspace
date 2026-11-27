@@ -49,6 +49,7 @@
     chosen: false,        // user clicked this one on purpose (never auto-skipped)
     filter: 'all',
     recent: [],
+    history: [],          // what was on screen before, newest last (for the Previous button)
     notice: '',
     noticeTimer: 0
   };
@@ -739,11 +740,16 @@
   }
 
   let swapToken = 0;
-  function show(v, mode, { animate = true, chosen = false } = {}) {
+  function show(v, mode, { animate = true, chosen = false, fromHistory = false } = {}) {
     if (!v) return;
     const tok = ++swapToken;
     const prev = state.current;
+    if (prev && prev !== v && !fromHistory) {
+      state.history.push({ v: prev, mode: state.mode, chosen: state.chosen });
+      if (state.history.length > 40) state.history.shift();
+    }
     state.current = v; state.mode = mode; state.chosen = chosen;
+    syncBack();
     if (prev && prev !== v) updateCard(prev);
     updateCard(v);
     if (animate && !chosen) scrollShelfTo(cardEls.get(v.id));
@@ -761,6 +767,21 @@
     void btn.offsetWidth;
     btn.classList.add('spin');
     setTimeout(() => btn.classList.remove('spin'), 750);
+  }
+  function syncBack() {
+    const b = $('#btn-back');
+    if (b) b.hidden = !state.history.some(h => h.v !== state.current && !h.v.blocked && !h.v.dead);
+  }
+  function goBack() {
+    let h;
+    while ((h = state.history.pop())) {
+      if (h.v !== state.current && !h.v.blocked && !h.v.dead) break;
+      h = null;
+    }
+    if (!h) { syncBack(); return; }
+    spin($('#btn-back'));
+    state.notice = '';
+    show(h.v, h.mode, { animate: true, chosen: h.chosen, fromHistory: true });
   }
   function refresh() {
     const v = nextRandom();
@@ -851,6 +872,7 @@
   function wire() {
     $('#btn-refresh').addEventListener('click', refresh);
     $('#btn-refresh-2').addEventListener('click', refresh);
+    $('#btn-back').addEventListener('click', goBack);
     $('#btn-today').addEventListener('click', backToToday);
     $('#btn-theme').addEventListener('click', e => { e.stopPropagation(); toggleThemePanel(); });
     $('#btn-watch').addEventListener('click', () => watch());
@@ -885,6 +907,7 @@
       if (e.key === 'r' || e.key === 'R') refresh();
       else if (e.key === 'c' || e.key === 'C') toggleThemePanel();
       else if (e.key === 't' || e.key === 'T') backToToday();
+      else if (e.key === 'b' || e.key === 'B') goBack();
     });
   }
 

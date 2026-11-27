@@ -2,7 +2,7 @@ name: Discover videos
 
 on:
   schedule:
-    - cron: '17 6 * * 0'   # Sundays, 06:17 UTC
+    - cron: '17 6 * * *'   # every day, 06:17 UTC
   workflow_dispatch:
     inputs:
       mode:
@@ -10,6 +10,9 @@ on:
         type: choice
         options: [videos, expand]
         default: videos
+      max:
+        description: 'Most videos to add in this run (videos mode)'
+        default: '3'
       dry_run:
         description: 'Print the result without changing anything'
         type: boolean
@@ -19,6 +22,10 @@ permissions:
   contents: write
   pull-requests: write
   models: read
+
+concurrency:
+  group: discover
+  cancel-in-progress: false
 
 jobs:
   discover:
@@ -35,14 +42,33 @@ jobs:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MODE: ${{ inputs.mode || 'videos' }}
+          MAX_PER_RUN: ${{ inputs.max || '3' }}
           DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
         run: node scripts/discover.mjs
 
-      - name: Open a review pull request
+      - name: Check the file still loads
+        run: node -e "global.window={};require('./videos.js');console.log('videos.js loads, ' + window.WANDERSPACE_VIDEOS.length + ' videos')"
+
+      # New uploads from channels you approved go straight onto the site.
+      - name: Publish new videos
+        if: ${{ (inputs.mode || 'videos') == 'videos' }}
+        run: |
+          if git diff --quiet -- videos.js; then
+            echo "No changes."
+            exit 0
+          fi
+          git config user.name "wanderspace-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Add new videos from approved channels"
+          git pull --rebase origin main
+          git push
+
+      # New channels are only suggestions, so they go to a pull request.
+      - name: Open a pull request with channel suggestions
+        if: ${{ inputs.mode == 'expand' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          node -e "global.window={};require('./videos.js');console.log('videos.js loads, ' + window.WANDERSPACE_VIDEOS.length + ' videos')"
           if [ -z "$(git status --porcelain)" ]; then
             echo "No changes."
             exit 0
@@ -52,9 +78,9 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"
           git add -A
-          git commit -m "Discovery: new picks to review"
+          git commit -m "Channel suggestions to review"
           git push -u origin "$branch"
           gh pr create --base main --head "$branch" \
-            --title "Weekly picks to review" \
-            --body "Nothing is live until you merge. Vercel builds a preview of this branch so you can see the picks on the site first. Tell Claude which ones to drop, or merge as is." \
+            --title "Channel suggestions" \
+            --body "Nothing here changes the site. Tell Claude which channels to approve." \
             || echo "Open the pull request here: https://github.com/${{ github.repository }}/compare/main...$branch"

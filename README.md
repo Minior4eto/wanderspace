@@ -41,15 +41,19 @@ Append an entry to `videos.js`:
 
 Use `secs:null` if you don't know the length.
 
-## Weekly discovery (automatic, with a review step)
+## Daily discovery (automatic)
 
-`.github/workflows/discover.yml` runs every Sunday and starts from channels you approved (`approvedChannels` in `channels.json`), not from keywords.
+`.github/workflows/discover.yml` runs every day at 06:17 UTC and starts from channels you approved, not from keywords.
 
-- **videos** (default): takes recent uploads from approved channels, keeps those 4 to 25 minutes long with a good like-to-view ratio, at most 2 per channel, and opens a pull request. Nothing goes live until you merge it; Vercel builds a preview of the branch so you can see the picks first.
-- **expand**: looks for similar channels (featured channels plus a few searches), drops big channels and content mills, and writes `channel-candidates.md` in a pull request. Approve a channel by adding its name to `approvedChannels` or its ID to `extraChannelIds`.
+- **videos** (default): takes recent uploads from approved channels, keeps those 4 to 25 minutes long with a good like-to-view ratio, at most 2 per channel and 3 per run, and commits them to `main`. Vercel redeploys on its own.
+- **expand**: looks for similar channels, drops big ones, content mills and channels full of shorts, streams and playthroughs, and opens a pull request with `channel-candidates.md`. Nothing changes on the site. Approve a channel by adding its ID to `extraChannelIds` (or its name to `approvedChannels` if it already has a video on the shelf).
 - Run either by hand: Actions → Discover videos → Run workflow. Tick `dry_run` to only print the result.
-- Needs the repo secret `YOUTUBE_API_KEY`, and Settings → Actions → General → Workflow permissions set to read and write, with "Allow GitHub Actions to create and approve pull requests" ticked.
-- Steer it in `channels.json`: `blockedChannels`, `blockedWords`, `blockedVideos` and the `limits`.
+- Needs the repo secret `YOUTUBE_API_KEY`, and Settings → Actions → General → Workflow permissions set to read and write.
+- Steer it in `channels.json`: `blockedChannels`, `blockedWords`, `blockedVideos`, `junkTitleWords` and the `limits`.
+
+## Keys
+
+`R` refresh, `B` previous video, `T` back to today's pick, `C` colours, `Esc` close.
 
 ## Files
 
