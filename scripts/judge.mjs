@@ -7,7 +7,7 @@ export const clip = (s, n) => {
 
 export const PASS_SCORE = 8;
 
-export function buildMessages(v, taste) {
+export function buildMessages(v, taste, near = []) {
   const good = taste.good.map(x => `- "${x.title}" (${x.channel})`).join('\n');
   const bad = taste.bad.map(x => `- "${x.title}" (${x.channel})${x.why ? ` — ${x.why}` : ''}`).join('\n');
   const system = [
@@ -19,7 +19,8 @@ export function buildMessages(v, taste) {
     'Be strict: when unsure, score low. Titles that name famous philosophers or promise "explained" are a warning sign.',
     'Reply with JSON only: {"score": 0-10 integer, "reason": short, "blurb": one neutral sentence under 20 words on what the video explores, "ask": one reflective question under 20 words}.'
   ].join('\n\n');
-  const user = `Title: ${v.snippet.title}\nChannel: ${v.snippet.channelTitle}\nDescription: ${clip(v.snippet.description, 900)}`;
+  const closest = near.length ? `\nClosest videos this person already loves: ${near.map(t => `"${t}"`).join('; ')}. Judge whether this one has the same kind of feel, not just a similar topic.` : '';
+  const user = `Title: ${v.snippet.title}\nChannel: ${v.snippet.channelTitle}\nDescription: ${clip(v.snippet.description, 900)}${closest}`;
   return [{ role: 'system', content: system }, { role: 'user', content: user }];
 }
 
@@ -39,17 +40,29 @@ export function parseVerdict(raw) {
   }
 }
 
-export async function judge(v, taste, token, fetchImpl = fetch) {
+const wait = ms => new Promise(r => setTimeout(r, ms));
+
+// The free tier allows about 15 requests a minute, so a long list needs pacing and a retry on 429.
+export async function judge(v, taste, token, fetchImpl = fetch, opts = {}) {
   if (!token) return null;
-  try {
-    const r = await fetchImpl('https://models.github.ai/inference/chat/completions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'openai/gpt-4o-mini', temperature: 0, messages: buildMessages(v, taste) })
-    });
-    if (!r.ok) return null;
-    return parseVerdict((await r.json()).choices?.[0]?.message?.content);
-  } catch {
-    return null;
+  const { near = [], sleep = wait, log = () => {}, tries = 4 } = opts;
+  for (let attempt = 1; attempt <= tries; attempt++) {
+    try {
+      const r = await fetchImpl('https://models.github.ai/inference/chat/completions', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'openai/gpt-4o-mini', temperature: 0, messages: buildMessages(v, taste, near) })
+      });
+      if (r.ok) return parseVerdict((await r.json()).choices?.[0]?.message?.content);
+      const body = (await r.text().catch(() => '')).slice(0, 160).replace(/\s+/g, ' ');
+      log(`model call failed, HTTP ${r.status}: ${body}`);
+      if (r.status !== 429 && r.status < 500) return null;
+      const after = Number(r.headers?.get?.('retry-after'));
+      await sleep(Math.min(Number.isFinite(after) && after > 0 ? after * 1000 : 20000 * attempt, 90000));
+    } catch (err) {
+      log(`model call error: ${err.message}`);
+      await sleep(5000);
+    }
   }
+  return null;
 }

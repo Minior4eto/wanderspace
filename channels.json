@@ -32,7 +32,7 @@
   "limits": {
     "perChannelPerRun": 2,
     "maxPerRun": 3,
-    "minViews": 2000,
+    "minViews": 500,
     "minLikeRatio": 0.02,
     "candidateMinSubs": 1500,
     "candidateMaxSubs": 300000,
@@ -118,5 +118,17 @@
     "part 2",
     "part 3"
   ],
-  "autoPublish": false
+  "autoPublish": false,
+  "discoveryQueries": [
+    "the hidden philosophy of a film",
+    "what this painting says about death",
+    "existential anime analysis",
+    "meaning of the ending of a novel",
+    "a fairy tale and what it really means",
+    "a myth retold and its meaning",
+    "loneliness in a poem and a painting",
+    "video essay absurdity in a movie character",
+    "the symbolism in a silent film",
+    "a short story about meaning and time"
+  ]
 }

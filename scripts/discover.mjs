@@ -1,12 +1,15 @@
-// Channel-first discovery.
-//   MODE=videos (default): new uploads from approved channels are appended to videos.js.
+// Similarity-first discovery.
+//   MODE=videos (default): finds videos close to the shelf (uploads of approved channels plus searches
+//   written from the shelf), ranks them by similarity, has the judge decide, appends to videos.js.
 //   MODE=expand: looks for other channels with the same feel and writes channel-candidates.md.
 // Needs YOUTUBE_API_KEY. GITHUB_TOKEN (models: read) is optional and only writes blurbs.
 // DRY_RUN=1 prints what would change and leaves the files alone.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import vm from 'node:vm';
 import { clip, judge, PASS_SCORE } from './judge.mjs';
+import { docText, queriesFromShelf, scoreCandidates, vectorsFor } from './similarity.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MIN_SECS = 240;   // 4 minutes
@@ -206,6 +209,27 @@ async function main() {
   // MODE=videos
   const room = MAX_SHELF - known.size;
   if (room <= 0) { console.log('Shelf is full.'); return; }
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) { console.log('No GITHUB_TOKEN, so nothing can be judged. Adding nothing.'); return; }
+  const taste = JSON.parse(fs.readFileSync(path.join(ROOT, 'taste.json'), 'utf8'));
+  const maxAdd = +process.env.MAX_PER_RUN || cfg.limits.maxPerRun;
+  const log = m => console.log(`  ! ${m}`);
+
+  // 1. The shelf is the teacher: every video on it, with its real description and tags.
+  const win = {};
+  vm.runInNewContext(src, { window: win });
+  const entries = win.WANDERSPACE_VIDEOS || [];
+  const apiShelf = new Map();
+  for (const ids of chunk(entries.map(e => e.id), 50)) {
+    const r = await yt('videos', { part: 'snippet', id: ids.join(','), maxResults: '50' });
+    for (const v of r.items ?? []) apiShelf.set(v.id, v);
+  }
+  const seeds = entries.map(e => ({ title: e.title, by: e.by, about: e.blurb || '', doc: docText(apiShelf.get(e.id) || e) }));
+  const badDocs = taste.bad.map(b => `${b.title}. ${b.channel}. ${b.why || ''}`);
+  console.log(`Learning from ${seeds.length} loved video(s) and ${badDocs.length} hated one(s).`);
+
+  // 2. Candidates from two places: new uploads of approved channels, and searches written from the shelf.
+  const fromSearch = new Set();
   const fresh = [];
   for (const ch of channels) {
     const up = ch.contentDetails?.relatedPlaylists?.uploads;
@@ -213,41 +237,73 @@ async function main() {
     const items = (await yt('playlistItems', { part: 'contentDetails', playlistId: up, maxResults: '50' })).items ?? [];
     for (const it of items) if (!known.has(it.contentDetails.videoId)) fresh.push(it.contentDetails.videoId);
   }
+  const queries = (await queriesFromShelf(seeds, cfg, token, fetch, 10)).slice(0, +process.env.SEARCHES || 12);
+  console.log(`Searching for: ${queries.map(q => `"${q}"`).join(', ')}`);
+  for (const q of queries) {
+    try {
+      const r = await yt('search', { part: 'id', type: 'video', q, videoDuration: 'medium', videoEmbeddable: 'true', relevanceLanguage: 'en', maxResults: '25' });
+      for (const it of r.items ?? []) if (it.id?.videoId && !known.has(it.id.videoId)) { fresh.push(it.id.videoId); fromSearch.add(it.id.videoId); }
+    } catch (err) {
+      console.log(`  search stopped: ${String(err.message).slice(0, 120)}`);
+      break;
+    }
+  }
   const details = [];
   for (const ids of chunk([...new Set(fresh)], 50)) {
     const r = await yt('videos', { part: 'snippet,contentDetails,status,statistics', id: ids.join(','), maxResults: '50' });
     details.push(...(r.items ?? []));
   }
-  const maxAdd = +process.env.MAX_PER_RUN || cfg.limits.maxPerRun;
-  const taste = JSON.parse(fs.readFileSync(path.join(ROOT, 'taste.json'), 'utf8'));
-  const token = process.env.GITHUB_TOKEN;
-  if (!token) { console.log('No GITHUB_TOKEN, so nothing can be judged. Adding nothing.'); return; }
+  // A video found by search from a channel we do not know must come from a decent mid-size channel.
+  const strangers = [...new Set(details.filter(v => !approved.has(v.snippet.channelId)).map(v => v.snippet.channelId))];
+  const okStranger = new Set();
+  for (const ids of chunk(strangers, 50)) {
+    const r = await yt('channels', { part: 'snippet,statistics', id: ids.join(','), maxResults: '50' });
+    for (const ch of r.items ?? []) if (channelOk(ch, cfg, approved)) okStranger.add(ch.id);
+  }
+  const pool = details.filter(v => isCandidate(v, cfg, known) && (approved.has(v.snippet.channelId) || okStranger.has(v.snippet.channelId)));
+  console.log(`${details.length} video(s) found, ${pool.length} passed the cheap filters (${pool.filter(v => fromSearch.has(v.id)).length} from searches).`);
+  if (!pool.length) { console.log('Nothing to look at.'); return; }
 
-  const ranked = rankCandidates(details, cfg, known).slice(0, +process.env.JUDGE_LIMIT || 60);
-  console.log(`${ranked.length} video(s) passed the cheap filters; asking the judge.`);
+  // 3. Rank by how close each one is to the shelf and how far from the hated examples.
+  const { kind, vecs } = await vectorsFor([...seeds.map(s => s.doc), ...badDocs, ...pool.map(docText)], token);
+  const scored = scoreCandidates(vecs, seeds.length, badDocs.length).map((r, i) => ({ v: pool[i], ...r }));
+  scored.sort((a, b) => b.score - a.score);
+  console.log(`Similarity measured with ${kind}. Closest to the shelf:`);
+  for (const c of scored.slice(0, 15))
+    console.log(`  ${c.score.toFixed(3)}  ${c.v.snippet.channelTitle} — ${c.v.snippet.title}  [like: ${seeds[c.near[0]]?.title}]`);
+  const toJudge = scored.slice(0, +process.env.JUDGE_LIMIT || 40);
+
+  // 4. The judge has the last word, and sees which loved videos each one resembles.
+  const PACE = process.env.PACE_MS !== undefined ? +process.env.PACE_MS : 4200;
   const accepted = [];
-  let answered = 0;
-  for (const v of ranked) {
-    const verdict = await judge(v, taste, token);
-    if (!verdict) { console.log(`? ${v.snippet.channelTitle} — ${v.snippet.title}: no verdict`); continue; }
-    answered++;
-    const tag = verdict.score >= PASS_SCORE ? 'KEEP' : 'drop';
-    console.log(`${tag} ${verdict.score}/10  ${v.snippet.channelTitle} — ${v.snippet.title}  (${verdict.reason})`);
-    if (verdict.score >= PASS_SCORE) accepted.push({ v, verdict, secs: secsOf(v.contentDetails.duration) });
+  let answered = 0, misses = 0;
+  for (const c of toJudge) {
+    const v = c.v;
+    const verdict = await judge(v, taste, token, fetch, { near: c.near.map(i => seeds[i].title), log });
+    if (!verdict) {
+      console.log(`? ${v.snippet.channelTitle} — ${v.snippet.title}: no verdict`);
+      if (!answered && ++misses >= 4) { console.log('The judge is not answering, stopping early.'); break; }
+    } else {
+      answered++;
+      const tag = verdict.score >= PASS_SCORE ? 'KEEP' : 'drop';
+      console.log(`${tag} ${verdict.score}/10  ${v.snippet.channelTitle} — ${v.snippet.title}  (${verdict.reason})`);
+      if (verdict.score >= PASS_SCORE) accepted.push({ v, verdict, sim: c.score, secs: secsOf(v.contentDetails.duration) });
+    }
+    if (PACE) await new Promise(r => setTimeout(r, PACE));
   }
   if (!answered) { console.log('The judge gave no answers, so nothing is added.'); return; }
-  accepted.sort((a, b) => b.verdict.score - a.verdict.score || likeRatio(b.v) - likeRatio(a.v));
+  accepted.sort((a, b) => b.verdict.score - a.verdict.score || b.sim - a.sim);
   const picks = capPerChannel(accepted, cfg, Math.min(maxAdd, room));
   if (!picks.length) { console.log('Nothing was good enough.'); return; }
-  const entries = [];
+  const out = [];
   for (const { v, secs, verdict } of picks) {
     const copy = verdict.blurb && verdict.ask ? { blurb: verdict.blurb, ask: verdict.ask } : fallbackCopy(v);
-    entries.push(entryFor(v, secs, copy));
+    out.push(entryFor(v, secs, copy));
     console.log(`+ ${v.id}  ${v.snippet.channelTitle} — ${v.snippet.title} (${Math.round(secs / 60)} min, score ${verdict.score})`);
   }
   if (DRY) { console.log('Dry run: videos.js not changed.'); return; }
-  fs.writeFileSync(file, appendEntries(src, entries));
-  console.log(`Added ${entries.length} video(s).`);
+  fs.writeFileSync(file, appendEntries(src, out));
+  console.log(`Added ${out.length} video(s).`);
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {

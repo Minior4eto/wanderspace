@@ -43,11 +43,13 @@ Use `secs:null` if you don't know the length.
 
 ## Daily discovery (automatic)
 
-`.github/workflows/discover.yml` runs every day at 06:17 UTC and starts from channels you approved, not from keywords.
+`.github/workflows/discover.yml` runs every day at 06:17 UTC and looks for videos that resemble what is already on the shelf.
 
-1. It takes recent uploads from approved channels that are 4 to 25 minutes long, embeddable and well liked.
-2. A model (GitHub Models, free with the workflow's own token) then reads each video's title, channel and description and scores it from 0 to 10 against `taste.json`: the rule, what to reject, and videos you loved and hated. Only 8 and up pass. If the model is unavailable, nothing is added.
-3. At most 2 per channel and 3 per run are added. With `"autoPublish": false` in `channels.json` they arrive as a pull request you can preview; set it to `true` to publish straight to `main`.
+1. It reads every video on the shelf (real description and tags) as the examples to match, plus the hated ones in `taste.json`.
+2. Candidates come from new uploads of approved channels and from YouTube searches that a model writes from the shelf (`discoveryQueries` in `channels.json` is the fallback). Videos from unknown channels need a mid-size, non-content-mill channel.
+3. Every candidate is scored by how close it is to the three nearest loved videos, minus how close it is to the nearest hated one (free GitHub Models embeddings, or plain word matching if they are unavailable). The log prints the closest ones.
+4. The judge (GitHub Models, free with the workflow's own token) then reads the top 40, sees which loved videos each resembles, and scores it 0 to 10 against `taste.json`. Only 8 and up pass. If the model is unavailable, nothing is added.
+5. At most 2 per channel and 3 per run are added. With `"autoPublish": false` in `channels.json` they arrive as a pull request you can preview; set it to `true` to publish straight to `main`.
 
 **Teaching it:** add a video you loved to `good` in `taste.json`, or one you hated to `bad` (with a `why`). It reads these every run.
 
