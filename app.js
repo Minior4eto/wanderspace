@@ -533,12 +533,16 @@
   /* ─────────────────────────────── picking ──────────────────────── */
   const DAILY = seededShuffle(VIDEOS.filter(v => v.secs === null || v.secs <= MAX_SECS).map(v => v.id), 7919);
 
+  /* the daily pick may be a video whose length is not measured yet; it is verified as soon as it is shown,
+     so the pick never depends on how fast background measuring runs */
+  const dailyOk = v => !v.blocked && !v.dead && (v.secs === null || v.secs <= MAX_SECS);
+
   function dailyPick(d = new Date()) {
     if (!DAILY.length) return null;
     const start = ((dayOrdinal(d) % DAILY.length) + DAILY.length) % DAILY.length;
     for (let i = 0; i < DAILY.length; i++) {
       const v = BY_ID.get(DAILY[(start + i) % DAILY.length]);
-      if (eligible(v)) return v;
+      if (dailyOk(v)) return v;
     }
     return null;
   }

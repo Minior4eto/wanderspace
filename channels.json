@@ -1,7 +1,16 @@
 {
   "approvedChannels": [
-    "scrawls", "Kaze", "Sisyphus 55", "Apollo's Journal", "Verse Creates",
-    "Bygone Philosophy", "Boklosophy", "imdanjo", "Alastair", "Pancake", "Gnooki"
+    "scrawls",
+    "Kaze",
+    "Sisyphus 55",
+    "Apollo's Journal",
+    "Verse Creates",
+    "Bygone Philosophy",
+    "Boklosophy",
+    "imdanjo",
+    "Alastair",
+    "Pancake",
+    "Gnooki"
   ],
   "extraChannelIds": [],
   "expandQueries": [
@@ -23,14 +32,52 @@
     "candidateMaxUploadsPerDay": 0.15
   },
   "blockedChannels": [
-    "TED-Ed", "School of Life", "Kurzgesagt", "Wireless Philosophy",
-    "CrashCourse", "Big Think", "BBC", "Wendover",
-    "Shadow Loom", "StudioBinder", "Anime Jungle", "YVS FILMS", "THE PHILOSOPHY OF POP CULTURE"
+    "TED-Ed",
+    "School of Life",
+    "Kurzgesagt",
+    "Wireless Philosophy",
+    "CrashCourse",
+    "Big Think",
+    "BBC",
+    "Wendover",
+    "Shadow Loom",
+    "StudioBinder",
+    "Anime Jungle",
+    "YVS FILMS",
+    "THE PHILOSOPHY OF POP CULTURE",
+    "Einzelgänger"
   ],
   "blockedWords": [
-    "podcast", "livestream", "live stream", "reaction", "q&a", "#shorts",
-    "tier list", "top 10", "top 5", "in 5 minutes", "explained",
-    "news", "trailer", "review", "ranking", "unboxing", "ai generated", "ai voice"
+    "podcast",
+    "livestream",
+    "live stream",
+    "reaction",
+    "q&a",
+    "#shorts",
+    "tier list",
+    "top 10",
+    "top 5",
+    "in 5 minutes",
+    "explained",
+    "news",
+    "trailer",
+    "review",
+    "ranking",
+    "unboxing",
+    "ai generated",
+    "ai voice"
   ],
-  "blockedVideos": ["yVjLIc1xKAM", "bFnaOhzgfDU", "x-zpdzzuahY", "QUY82exgOz0", "7rBlknHxrRA"]
+  "blockedVideos": [
+    "yVjLIc1xKAM",
+    "bFnaOhzgfDU",
+    "x-zpdzzuahY",
+    "QUY82exgOz0",
+    "7rBlknHxrRA",
+    "r7zThgJAAPg",
+    "LGXRpbDuDGE",
+    "bgL9z3Sexz8",
+    "Tkaheggogm0",
+    "KDsdLKDHIWI",
+    "TNg4tXG5XNw"
+  ]
 }

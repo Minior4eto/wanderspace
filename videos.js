@@ -82,43 +82,7 @@ window.WANDERSPACE_VIDEOS = [
     blurb: "Alan Watts asks what you'd do with your life if money weren't the point.",
     ask: "If money weren't a factor, what would you spend a year doing?"
   },
-  // ── stoicism ─────────────────────────────────────────────────────────────
-  {
-    id: 'r7zThgJAAPg', title: 'How Marcus Aurelius Stayed Calm in Chaos | 3 Stoic Methods', by: 'Einzelgänger',
-    secs: 720, check: 'est', themes: ['stoicism'],
-    blurb: 'A Marcus Aurelius essay on staying steady when everything around you is not.',
-    ask: 'Which of the three kinds of chaos in your life is actually yours to fix?'
-  },
-  {
-    id: 'LGXRpbDuDGE', title: 'When Life Hurts, Care Less About It | The Philosophy of Marcus Aurelius', by: 'Einzelgänger',
-    secs: 720, check: 'est', themes: ['stoicism', 'meaning'],
-    blurb: 'A Marcus Aurelius essay on how much weight we give to the things that hurt us.',
-    ask: 'What are you giving more weight than it deserves?'
-  },
-  {
-    id: 'bgL9z3Sexz8', title: 'Nothing Can Hurt You Without Your Permission | Stoic Philosophy', by: 'Einzelgänger',
-    secs: 720, check: 'est', themes: ['stoicism'],
-    blurb: 'A Stoic essay on the gap between what happens to you and how you take it.',
-    ask: 'Where could you pause between what happened and how you respond?'
-  },
-  {
-    id: 'Tkaheggogm0', title: '"Let Them Scream Whatever They Want" | How Stoics Deal With Panic', by: 'Einzelgänger',
-    secs: 720, check: 'est', themes: ['stoicism'],
-    blurb: 'A Stoic essay on keeping your head when other people are losing theirs.',
-    ask: "Whose panic have you been absorbing that was never yours?"
-  },
-  {
-    id: 'KDsdLKDHIWI', title: "The Problem Isn't Life, It's Your Expectations | Stoicism", by: 'Einzelgänger',
-    secs: 720, check: 'est', themes: ['stoicism', 'meaning'],
-    blurb: 'A Stoic essay on how much of our frustration comes from what we expected.',
-    ask: 'Which expectation, if you let it go today, would make the day lighter?'
-  },
-  {
-    id: 'TNg4tXG5XNw', title: 'Don’t Be “Distracted by Their Darkness” | Marcus Aurelius on Success', by: 'Einzelgänger',
-    secs: 720, check: 'est', themes: ['stoicism', 'identity'],
-    blurb: 'A Marcus Aurelius essay on success and staying clear of other people’s noise.',
-    ask: 'Whose opinion of your life are you still performing for?'
-  },
+  // ── stoicism ─────────────────────────────────────────────────────────────,
 
   // ── added from your list: stories, characters, symbolism ─────────────────
   {
