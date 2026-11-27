@@ -6,8 +6,26 @@ const BASE = 'https://generativelanguage.googleapis.com/v1beta/models/';
 export function makeLlm(key, { fetchImpl = fetch, sleep = wait, log = () => {}, model = process.env.GEMINI_MODEL, tries = 2 } = {}) {
   if (!key) return null;
   /* when one model is overloaded (503) or out of quota (429) the next one is tried, instead of waiting it out */
-  const models = [...new Set([model, 'gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite'].filter(Boolean))];
+  let models = [...new Set([model, 'gemini-flash-latest', 'gemini-flash-lite-latest'].filter(Boolean))];
   const coolUntil = {};
+  let listed = false;
+  /* model names change over time, so ask Google which flash models this key can use right now */
+  async function discoverModels() {
+    listed = true;
+    try {
+      const r = await fetchImpl(BASE.replace(/models\/$/, 'models') + '?pageSize=200', { headers: { 'x-goog-api-key': key } });
+      if (!r.ok) { log(`Gemini model list HTTP ${r.status}`); return; }
+      const j = await r.json();
+      const ver = n => Number((n.match(/gemini-(\d+(?:\.\d+)?)/) || [])[1]) || 0;
+      const found = (j.models || [])
+        .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+        .map(m => m.name.replace(/^models\//, ''))
+        .filter(n => /^gemini-[\d.]+-flash/.test(n) && !/image|tts|audio|live|thinking|exp|vision|embedding|robotics|computer/.test(n))
+        .sort((a, b) => (/lite/.test(a) - /lite/.test(b)) || (ver(b) - ver(a)) || (/preview/.test(a) - /preview/.test(b)));
+      models = [...new Set([model, ...found.slice(0, 4), 'gemini-flash-latest', 'gemini-flash-lite-latest'].filter(Boolean))];
+      log(`Gemini models to try: ${models.join(', ')}`);
+    } catch (err) { log(`Gemini model list error: ${err.message}`); }
+  }
   async function post(path, body) {
     for (let attempt = 1; attempt <= tries; attempt++) {
       try {
@@ -38,6 +56,7 @@ export function makeLlm(key, { fetchImpl = fetch, sleep = wait, log = () => {}, 
         contents: [{ role: 'user', parts: [{ text: user }] }],
         generationConfig: { temperature, responseMimeType: 'application/json' }
       };
+      if (!listed) await discoverModels();
       for (const m of models) {
         if (coolUntil[m] > Date.now()) continue;
         const j = await post(`${m}:generateContent`, body);
