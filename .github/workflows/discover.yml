@@ -40,7 +40,7 @@ jobs:
       - name: Run discovery
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           MODE: ${{ inputs.mode || 'videos' }}
           MAX_PER_RUN: ${{ inputs.max || '3' }}
           DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}

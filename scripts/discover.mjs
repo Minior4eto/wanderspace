@@ -2,13 +2,14 @@
 //   MODE=videos (default): finds videos close to the shelf (uploads of approved channels plus searches
 //   written from the shelf), ranks them by similarity, has the judge decide, appends to videos.js.
 //   MODE=expand: looks for other channels with the same feel and writes channel-candidates.md.
-// Needs YOUTUBE_API_KEY. GITHUB_TOKEN (models: read) is optional and only writes blurbs.
+// Needs YOUTUBE_API_KEY and GEMINI_API_KEY (free, aistudio.google.com).
 // DRY_RUN=1 prints what would change and leaves the files alone.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 import { clip, judge, PASS_SCORE } from './judge.mjs';
+import { makeLlm } from './llm.mjs';
 import { docText, queriesFromShelf, scoreCandidates, vectorsFor } from './similarity.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -209,11 +210,11 @@ async function main() {
   // MODE=videos
   const room = MAX_SHELF - known.size;
   if (room <= 0) { console.log('Shelf is full.'); return; }
-  const token = process.env.GITHUB_TOKEN;
-  if (!token) { console.log('No GITHUB_TOKEN, so nothing can be judged. Adding nothing.'); return; }
+  const log = m => console.log(`  ! ${m}`);
+  const llm = makeLlm(process.env.GEMINI_API_KEY, { log });
+  if (!llm) { console.log('No GEMINI_API_KEY, so nothing can be judged. Adding nothing.'); return; }
   const taste = JSON.parse(fs.readFileSync(path.join(ROOT, 'taste.json'), 'utf8'));
   const maxAdd = +process.env.MAX_PER_RUN || cfg.limits.maxPerRun;
-  const log = m => console.log(`  ! ${m}`);
 
   // 1. The shelf is the teacher: every video on it, with its real description and tags.
   const win = {};
@@ -237,7 +238,7 @@ async function main() {
     const items = (await yt('playlistItems', { part: 'contentDetails', playlistId: up, maxResults: '50' })).items ?? [];
     for (const it of items) if (!known.has(it.contentDetails.videoId)) fresh.push(it.contentDetails.videoId);
   }
-  const queries = (await queriesFromShelf(seeds, cfg, token, fetch, 10)).slice(0, +process.env.SEARCHES || 12);
+  const queries = (await queriesFromShelf(seeds, cfg, llm, 10)).slice(0, +process.env.SEARCHES || 12);
   console.log(`Searching for: ${queries.map(q => `"${q}"`).join(', ')}`);
   for (const q of queries) {
     try {
@@ -265,7 +266,7 @@ async function main() {
   if (!pool.length) { console.log('Nothing to look at.'); return; }
 
   // 3. Rank by how close each one is to the shelf and how far from the hated examples.
-  const { kind, vecs } = await vectorsFor([...seeds.map(s => s.doc), ...badDocs, ...pool.map(docText)], token);
+  const { kind, vecs } = await vectorsFor([...seeds.map(s => s.doc), ...badDocs, ...pool.map(docText)], llm);
   const scored = scoreCandidates(vecs, seeds.length, badDocs.length).map((r, i) => ({ v: pool[i], ...r }));
   scored.sort((a, b) => b.score - a.score);
   console.log(`Similarity measured with ${kind}. Closest to the shelf:`);
@@ -274,12 +275,12 @@ async function main() {
   const toJudge = scored.slice(0, +process.env.JUDGE_LIMIT || 40);
 
   // 4. The judge has the last word, and sees which loved videos each one resembles.
-  const PACE = process.env.PACE_MS !== undefined ? +process.env.PACE_MS : 4200;
+  const PACE = process.env.PACE_MS !== undefined ? +process.env.PACE_MS : 6500;
   const accepted = [];
   let answered = 0, misses = 0;
   for (const c of toJudge) {
     const v = c.v;
-    const verdict = await judge(v, taste, token, fetch, { near: c.near.map(i => seeds[i].title), log });
+    const verdict = await judge(v, taste, llm, { near: c.near.map(i => seeds[i].title) });
     if (!verdict) {
       console.log(`? ${v.snippet.channelTitle} — ${v.snippet.title}: no verdict`);
       if (!answered && ++misses >= 4) { console.log('The judge is not answering, stopping early.'); break; }

@@ -47,8 +47,8 @@ Use `secs:null` if you don't know the length.
 
 1. It reads every video on the shelf (real description and tags) as the examples to match, plus the hated ones in `taste.json`.
 2. Candidates come from new uploads of approved channels and from YouTube searches that a model writes from the shelf (`discoveryQueries` in `channels.json` is the fallback). Videos from unknown channels need a mid-size, non-content-mill channel.
-3. Every candidate is scored by how close it is to the three nearest loved videos, minus how close it is to the nearest hated one (free GitHub Models embeddings, or plain word matching if they are unavailable). The log prints the closest ones.
-4. The judge (GitHub Models, free with the workflow's own token) then reads the top 40, sees which loved videos each resembles, and scores it 0 to 10 against `taste.json`. Only 8 and up pass. If the model is unavailable, nothing is added.
+3. Every candidate is scored by how close it is to the three nearest loved videos, minus how close it is to the nearest hated one (Gemini embeddings, or plain word matching if they are unavailable). The log prints the closest ones.
+4. The judge (Google Gemini, free key stored as the `GEMINI_API_KEY` secret) then reads the top 40, sees which loved videos each resembles, and scores it 0 to 10 against `taste.json`. Only 8 and up pass. If the model is unavailable, nothing is added.
 5. At most 2 per channel and 3 per run are added. With `"autoPublish": false` in `channels.json` they arrive as a pull request you can preview; set it to `true` to publish straight to `main`.
 
 **Teaching it:** add a video you loved to `good` in `taste.json`, or one you hated to `bad` (with a `why`). It reads these every run.

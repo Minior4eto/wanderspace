@@ -40,29 +40,9 @@ export function parseVerdict(raw) {
   }
 }
 
-const wait = ms => new Promise(r => setTimeout(r, ms));
-
-// The free tier allows about 15 requests a minute, so a long list needs pacing and a retry on 429.
-export async function judge(v, taste, token, fetchImpl = fetch, opts = {}) {
-  if (!token) return null;
-  const { near = [], sleep = wait, log = () => {}, tries = 4 } = opts;
-  for (let attempt = 1; attempt <= tries; attempt++) {
-    try {
-      const r = await fetchImpl('https://models.github.ai/inference/chat/completions', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'openai/gpt-4o-mini', temperature: 0, messages: buildMessages(v, taste, near) })
-      });
-      if (r.ok) return parseVerdict((await r.json()).choices?.[0]?.message?.content);
-      const body = (await r.text().catch(() => '')).slice(0, 160).replace(/\s+/g, ' ');
-      log(`model call failed, HTTP ${r.status}: ${body}`);
-      if (r.status !== 429 && r.status < 500) return null;
-      const after = Number(r.headers?.get?.('retry-after'));
-      await sleep(Math.min(Number.isFinite(after) && after > 0 ? after * 1000 : 20000 * attempt, 90000));
-    } catch (err) {
-      log(`model call error: ${err.message}`);
-      await sleep(5000);
-    }
-  }
-  return null;
+// llm comes from llm.mjs; it paces and retries by itself. Any failure means "no verdict".
+export async function judge(v, taste, llm, opts = {}) {
+  if (!llm) return null;
+  const raw = await llm.chat(buildMessages(v, taste, opts.near || []), { temperature: 0 });
+  return raw ? parseVerdict(raw) : null;
 }

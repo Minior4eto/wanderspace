@@ -43,29 +43,8 @@ export function cosine(a, b) {
   return na && nb ? dot / Math.sqrt(na * nb) : 0;
 }
 
-export async function embed(texts, token, fetchImpl = fetch) {
-  const out = [];
-  try {
-    for (let i = 0; i < texts.length; i += 50) {
-      const batch = texts.slice(i, i + 50);
-      const r = await fetchImpl('https://models.github.ai/inference/embeddings', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'openai/text-embedding-3-small', input: batch })
-      });
-      if (!r.ok) return null;
-      const data = (await r.json()).data;
-      if (!Array.isArray(data) || data.length !== batch.length) return null;
-      out.push(...data.map(d => d.embedding));
-    }
-    return out;
-  } catch {
-    return null;
-  }
-}
-
-export async function vectorsFor(texts, token, fetchImpl = fetch) {
-  const emb = token ? await embed(texts, token, fetchImpl) : null;
+export async function vectorsFor(texts, llm) {
+  const emb = llm ? await llm.embed(texts) : null;
   return emb ? { kind: 'embeddings', vecs: emb } : { kind: 'tfidf', vecs: tfidf(texts) };
 }
 
@@ -86,9 +65,9 @@ export function scoreCandidates(vecs, nGood, nBad, { k = 3, badWeight = 0.5 } = 
 }
 
 // Search queries written from the shelf itself, so they change when the shelf does.
-export async function queriesFromShelf(seeds, cfg, token, fetchImpl = fetch, count = 10) {
+export async function queriesFromShelf(seeds, cfg, llm, count = 10) {
   const fixed = cfg.discoveryQueries || [];
-  if (!token) return fixed;
+  if (!llm) return fixed;
   const list = seeds.slice(0, 30).map(s => `- "${s.title}" (${s.by}): ${clip(s.about, 140)}`).join('\n');
   const messages = [
     {
@@ -100,14 +79,8 @@ export async function queriesFromShelf(seeds, cfg, token, fetchImpl = fetch, cou
     { role: 'user', content: `Favourites:\n${list}` }
   ];
   try {
-    const r = await fetchImpl('https://models.github.ai/inference/chat/completions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'openai/gpt-4o-mini', temperature: 0.9, messages })
-    });
-    if (!r.ok) return fixed;
-    const raw = (await r.json()).choices?.[0]?.message?.content || '';
-    const arr = JSON.parse(raw.replace(/```json|```/g, '').trim());
+    const raw = await llm.chat(messages, { temperature: 0.9 });
+    const arr = JSON.parse(String(raw || '').replace(/```json|```/g, '').trim());
     const made = (Array.isArray(arr) ? arr : []).filter(q => typeof q === 'string').map(q => clip(q, 80)).filter(Boolean);
     return [...new Set([...made, ...fixed])];
   } catch {
