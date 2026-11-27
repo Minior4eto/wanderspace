@@ -180,5 +180,60 @@ window.WANDERSPACE_VIDEOS = [
     secs: null, check: null, themes: ['love', 'identity'],
     blurb: 'A video essay on love and what it can and cannot repair.',
     ask: 'What are you hoping someone else will fix in you?'
+  },
+  {
+    id: "yVjLIc1xKAM",
+    title: "Why Keep Going? | Albert Camus & The Absurd Explained",
+    by: "Shadow Loom",
+    secs: 1301,
+    check: "checked",
+    themes: ["existentialism","meaning","identity","absurd","love"],
+    blurb: "📖 Get The Stranger by Albert Camus: https://bookshop",
+    ask: "What would you keep if you stopped trying to be impressive?",
+    lang: "en"
+  },
+  {
+    id: "bFnaOhzgfDU",
+    title: "How Filmmakers Create Depth — Symbolism Explained",
+    by: "StudioBinder",
+    secs: 1028,
+    check: "checked",
+    themes: ["mortality","meaning","identity","evil"],
+    blurb: "How to Include Symbolism in Film — We look at the role symbolism plays in movies, from its uses to its various forms",
+    ask: "What would you keep if you stopped trying to be impressive?",
+    lang: "en"
+  },
+  {
+    id: "x-zpdzzuahY",
+    title: "Berserk Explains Nietzsche Better Than Philosophy Books",
+    by: "Anime Jungle",
+    secs: 435,
+    check: "checked",
+    themes: ["mortality","meaning","evil"],
+    blurb: "You think you know Berserk as a dark fantasy about violence and survival",
+    ask: "What would you keep if you stopped trying to be impressive?",
+    lang: "en"
+  },
+  {
+    id: "QUY82exgOz0",
+    title: "The Absurdity of Life & Suicide | A Philosophical Essay.",
+    by: "YVS FILMS",
+    secs: 279,
+    check: "checked",
+    themes: ["existentialism","meaning","identity","absurd","love"],
+    blurb: "At the edge of human consciousness lies a question so heavy, so unavoidable, that everything else becomes trivial",
+    ask: "What would you keep if you stopped trying to be impressive?",
+    lang: "en"
+  },
+  {
+    id: "7rBlknHxrRA",
+    title: "DAREDEVIL: The Stoic Duty of Suffering [Stoicism & Justice]",
+    by: "THE PHILOSOPHY OF POP CULTURE",
+    secs: 435,
+    check: "checked",
+    themes: ["existentialism","stoicism","identity","evil"],
+    blurb: "Is suffering a curse to be avoided, or is it the ultimate catalyst for moral strength and self-mastery? Why is Matt Murdock, the Devil of Hell's Kitchen,…",
+    ask: "What would you keep if you stopped trying to be impressive?",
+    lang: "en"
   }
 ];
