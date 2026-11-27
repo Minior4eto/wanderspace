@@ -41,6 +41,15 @@ Append an entry to `videos.js`:
 
 Use `secs:null` if you don't know the length.
 
+## Weekly discovery (automatic)
+
+`.github/workflows/discover.yml` runs every Sunday. `scripts/discover.mjs` searches YouTube for essay-style videos, keeps those between 4 and 25 minutes that match `channels.json`, and appends up to five to `videos.js`. Vercel redeploys on the push.
+
+- Needs the repo secret `YOUTUBE_API_KEY` (YouTube Data API v3, restricted to that API).
+- Blurbs come from GitHub Models when the token allows it, otherwise from the video's description.
+- To steer it, edit `channels.json`: search `queries`, `keywords`, `trustedChannels`, `blockedChannels`, `blockedWords`. Add a video ID to `blockedVideos` to keep it out for good.
+- Run it by hand: Actions → Discover videos → Run workflow. Tick `dry_run` to see the picks without changing anything.
+
 ## Files
 
-`index.html`, `styles.css`, `app.js`, `videos.js`, `vendor/three.min.js` (three.js r150), `assets/favicon.svg`.
+`index.html`, `styles.css`, `app.js`, `videos.js`, `channels.json`, `scripts/discover.mjs`, `.github/workflows/discover.yml`, `vendor/three.min.js` (three.js r150), `assets/favicon.svg`.
