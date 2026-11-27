@@ -41,14 +41,15 @@ Append an entry to `videos.js`:
 
 Use `secs:null` if you don't know the length.
 
-## Weekly discovery (automatic)
+## Weekly discovery (automatic, with a review step)
 
-`.github/workflows/discover.yml` runs every Sunday. `scripts/discover.mjs` searches YouTube for essay-style videos, keeps those between 4 and 25 minutes that match `channels.json`, and appends up to five to `videos.js`. Vercel redeploys on the push.
+`.github/workflows/discover.yml` runs every Sunday and starts from channels you approved (`approvedChannels` in `channels.json`), not from keywords.
 
-- Needs the repo secret `YOUTUBE_API_KEY` (YouTube Data API v3, restricted to that API).
-- Blurbs come from GitHub Models when the token allows it, otherwise from the video's description.
-- To steer it, edit `channels.json`: search `queries`, `keywords`, `trustedChannels`, `blockedChannels`, `blockedWords`. Add a video ID to `blockedVideos` to keep it out for good.
-- Run it by hand: Actions → Discover videos → Run workflow. Tick `dry_run` to see the picks without changing anything.
+- **videos** (default): takes recent uploads from approved channels, keeps those 4 to 25 minutes long with a good like-to-view ratio, at most 2 per channel, and opens a pull request. Nothing goes live until you merge it; Vercel builds a preview of the branch so you can see the picks first.
+- **expand**: looks for similar channels (featured channels plus a few searches), drops big channels and content mills, and writes `channel-candidates.md` in a pull request. Approve a channel by adding its name to `approvedChannels` or its ID to `extraChannelIds`.
+- Run either by hand: Actions → Discover videos → Run workflow. Tick `dry_run` to only print the result.
+- Needs the repo secret `YOUTUBE_API_KEY`, and Settings → Actions → General → Workflow permissions set to read and write, with "Allow GitHub Actions to create and approve pull requests" ticked.
+- Steer it in `channels.json`: `blockedChannels`, `blockedWords`, `blockedVideos` and the `limits`.
 
 ## Files
 

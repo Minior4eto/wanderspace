@@ -1,37 +1,36 @@
 {
-  "queries": [
-    "villain philosophy essay",
-    "anime philosophy essay",
-    "philosophy through symbolism essay",
-    "painting symbolism meaning essay",
-    "movie philosophy essay meaning of life",
-    "book philosophy character essay",
-    "Camus absurd essay story",
-    "Nietzsche essay story character",
-    "stoicism story character essay",
-    "evil in fiction essay",
-    "short film philosophy meaning",
-    "what happens when the villain wins"
-  ],
-  "keywords": [
-    "villain", "character", "story", "stories", "anime", "film", "movie", "painting",
-    "novel", "book", "symbol", "myth", "death", "love", "evil", "meaning", "absurd",
-    "camus", "nietzsche", "stoic", "philosoph", "sisyphus", "kafka", "dostoevsky",
-    "tarkovsky", "miyazaki", "berserk", "frankenstein", "dark", "hero"
-  ],
-  "trustedChannels": [
+  "approvedChannels": [
     "scrawls", "Kaze", "Sisyphus 55", "Apollo's Journal", "Verse Creates",
-    "Bygone Philosophy", "Boklosophy", "imdanjo", "Alastair", "Pancake",
-    "Einzelgänger", "Gnooki", "Marcell Jankovics"
+    "Bygone Philosophy", "Boklosophy", "imdanjo", "Alastair", "Pancake", "Gnooki"
   ],
+  "extraChannelIds": [],
+  "expandQueries": [
+    "video essay philosophy characters",
+    "video essay villain meaning",
+    "video essay anime meaning of life",
+    "video essay film philosophy",
+    "video essay existentialism fiction",
+    "video essay loneliness identity",
+    "video essay symbolism art"
+  ],
+  "limits": {
+    "perChannelPerRun": 2,
+    "maxPerRun": 8,
+    "minViews": 2000,
+    "minLikeRatio": 0.02,
+    "candidateMinSubs": 1500,
+    "candidateMaxSubs": 300000,
+    "candidateMaxUploadsPerDay": 0.15
+  },
   "blockedChannels": [
     "TED-Ed", "School of Life", "Kurzgesagt", "Wireless Philosophy",
-    "CrashCourse", "Big Think", "BBC", "Wendover"
+    "CrashCourse", "Big Think", "BBC", "Wendover",
+    "Shadow Loom", "StudioBinder", "Anime Jungle", "YVS FILMS", "THE PHILOSOPHY OF POP CULTURE"
   ],
   "blockedWords": [
     "podcast", "livestream", "live stream", "reaction", "q&a", "#shorts",
-    "tier list", "top 10", "top 5", "in 5 minutes", "explained in",
-    "news", "trailer", "review", "ranking", "unboxing"
+    "tier list", "top 10", "top 5", "in 5 minutes", "explained",
+    "news", "trailer", "review", "ranking", "unboxing", "ai generated", "ai voice"
   ],
-  "blockedVideos": []
+  "blockedVideos": ["yVjLIc1xKAM", "bFnaOhzgfDU", "x-zpdzzuahY", "QUY82exgOz0", "7rBlknHxrRA"]
 }

@@ -5,13 +5,19 @@ on:
     - cron: '17 6 * * 0'   # Sundays, 06:17 UTC
   workflow_dispatch:
     inputs:
+      mode:
+        description: 'videos = new uploads from approved channels; expand = look for similar channels'
+        type: choice
+        options: [videos, expand]
+        default: videos
       dry_run:
-        description: 'Print the picks without changing videos.js'
+        description: 'Print the result without changing anything'
         type: boolean
         default: false
 
 permissions:
   contents: write
+  pull-requests: write
   models: read
 
 jobs:
@@ -24,21 +30,31 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Find new videos
+      - name: Run discovery
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MODE: ${{ inputs.mode || 'videos' }}
           DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
         run: node scripts/discover.mjs
 
-      - name: Check the file still loads and commit
+      - name: Open a review pull request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           node -e "global.window={};require('./videos.js');console.log('videos.js loads, ' + window.WANDERSPACE_VIDEOS.length + ' videos')"
-          if git diff --quiet -- videos.js; then
+          if [ -z "$(git status --porcelain)" ]; then
             echo "No changes."
             exit 0
           fi
+          branch="review/$(date -u +%Y-%m-%d-%H%M)"
           git config user.name "wanderspace-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -am "Add new videos from weekly discovery"
-          git push
+          git checkout -b "$branch"
+          git add -A
+          git commit -m "Discovery: new picks to review"
+          git push -u origin "$branch"
+          gh pr create --base main --head "$branch" \
+            --title "Weekly picks to review" \
+            --body "Nothing is live until you merge. Vercel builds a preview of this branch so you can see the picks on the site first. Tell Claude which ones to drop, or merge as is." \
+            || echo "Open the pull request here: https://github.com/${{ github.repository }}/compare/main...$branch"
