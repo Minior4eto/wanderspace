@@ -166,5 +166,38 @@ window.WANDERSPACE_VIDEOS = [
     blurb: "Unplugging from the noise and finding clarity in the quiet, stepping away from the chaos to reconnect with what matters",
     ask: "What would you keep if you stopped trying to be impressive?",
     lang: "en"
+  },
+  {
+    id: "lf6-yQckIaM",
+    title: "The pain of reinventing yourself",
+    by: "Alastair",
+    secs: 481,
+    check: "checked",
+    themes: ["identity"],
+    blurb: "The emotional toll and internal friction of shedding an old identity to become someone entirely new.",
+    ask: "What part of yourself must you abandon to finally become who you want to be?",
+    lang: "en"
+  },
+  {
+    id: "BZRwlnVoH4c",
+    title: "Who are you, really?",
+    by: "Verse Creates",
+    secs: 943,
+    check: "checked",
+    themes: ["meaning"],
+    blurb: "An exploration of personal identity, authenticity, and the layers of self we present to the world.",
+    ask: "Which part of your identity would remain if all external expectations vanished?",
+    lang: "en"
+  },
+  {
+    id: "W5uU0Fu1VVw",
+    title: "who you are is what you are when you are",
+    by: "Sisyphus 55",
+    secs: 261,
+    check: "checked",
+    themes: ["absurd"],
+    blurb: "An essay exploring how human identity is shaped by time and the present moment.",
+    ask: "Are you defined by your past, or only by who you are right now?",
+    lang: "en"
   }
 ];
