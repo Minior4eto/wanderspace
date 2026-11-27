@@ -144,5 +144,93 @@ window.WANDERSPACE_VIDEOS = [
     secs: null, check: null, themes: ['love', 'identity'],
     blurb: 'A video essay on love and what it can and cannot repair.',
     ask: 'What are you hoping someone else will fix in you?'
+  },
+  {
+    id: "QueomCKYr-8",
+    title: "This found you for a reason.",
+    by: "Alastair",
+    secs: 251,
+    check: "checked",
+    themes: ["meaning"],
+    blurb: "There’s no rush to have it all figured out",
+    ask: "What would you keep if you stopped trying to be impressive?",
+    lang: "en"
+  },
+  {
+    id: "L7ZE2rpkoeA",
+    title: "Offline is the new luxury",
+    by: "Alastair",
+    secs: 372,
+    check: "checked",
+    themes: ["meaning"],
+    blurb: "Unplugging from the noise and finding clarity in the quiet, stepping away from the chaos to reconnect with what matters",
+    ask: "What would you keep if you stopped trying to be impressive?",
+    lang: "en"
+  },
+  {
+    id: "PaSAQs1NQfw",
+    title: "Why the Dream SMP's Storytelling is GENIUS.",
+    by: "scrawls",
+    secs: 837,
+    check: "checked",
+    themes: ["identity","evil"],
+    blurb: "This is why the Dream SMP's storytelling is brilliant",
+    ask: "What would you keep if you stopped trying to be impressive?",
+    lang: "en"
+  },
+  {
+    id: "A8nvWPZZy7Q",
+    title: "A YouTuber Just Made An Anime",
+    by: "imdanjo",
+    secs: 523,
+    check: "checked",
+    themes: ["meaning"],
+    blurb: "welcome to krispy kreme, what can i get for ya?",
+    ask: "What would you keep if you stopped trying to be impressive?",
+    lang: "en"
+  },
+  {
+    id: "lwsAufQL7P0",
+    title: "When Fans Saved A Manga",
+    by: "imdanjo",
+    secs: 617,
+    check: "checked",
+    themes: ["love"],
+    blurb: "Support Love Bullet!",
+    ask: "What would you keep if you stopped trying to be impressive?",
+    lang: "en"
+  },
+  {
+    id: "q149fvUMBtw",
+    title: "Dream SMP Apologists Be Like... | SATIRE",
+    by: "scrawls",
+    secs: 245,
+    check: "checked",
+    themes: ["love"],
+    blurb: "This is a comedic video by the way! Please don't take it too seriously! It's meant poke light-hearted fun at some Dream SMP characters because I wanted to…",
+    ask: "What would you keep if you stopped trying to be impressive?",
+    lang: "en"
+  },
+  {
+    id: "TMl2uZzB0Vw",
+    title: "Grave Robbing for Dummies",
+    by: "Pancake",
+    secs: 1163,
+    check: "checked",
+    themes: ["meaning"],
+    blurb: "https://patreon",
+    ask: "What would you keep if you stopped trying to be impressive?",
+    lang: "en"
+  },
+  {
+    id: "7S4AFuawk8c",
+    title: "The Horror of Being Human | Society and Gender in Franz Kafka Metamorphosis and Stepford Wives 1975",
+    by: "calliope",
+    secs: 751,
+    check: "checked",
+    themes: ["meaning"],
+    blurb: "In this video essay, I'm breaking down the feminist horror allegories in both Franz Kafka Metamorphosis and Stepford Wives 1975",
+    ask: "What would you keep if you stopped trying to be impressive?",
+    lang: "en"
   }
 ];
