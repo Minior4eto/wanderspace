@@ -206,7 +206,8 @@
             float run = pow(max(0., sin((vU - uTime*.045)*25.13)), 22.);
             float env2 = smoothstep(.55,.98, dot(R, normalize(vec3(.6,.25,.75))));
             vec3 col = uBase*(.03+.20*diff*diff) + uAccent*f*1.0 + hot*band*f*.25 + vec3(1.)*spec*.22;
-            col += (uAccent*env*.34 + vec3(1.)*env2*.30) * uSolid;
+            vec3 film = .5 + .5*cos(6.2832*(nv*1.1 + sh*.25 + vec3(0., .33, .67)));
+            col += (uAccent*env*.34 + vec3(1.)*env2*.30 + film*f*.32 + film*env*.08) * uSolid;
             col += hot * run * (.25 + f) * uRun * .9;
             float alpha = mix(1., .16 + f*.84, uGlass);
             if (uSolid > .5) gl_FragColor = vec4(col*uDim, uShow);
@@ -225,18 +226,28 @@
       const body = new THREE.Mesh(
         new THREE.SphereGeometry(1, mobile ? 64 : 112, mobile ? 40 : 72),
         new THREE.ShaderMaterial({
-          uniforms: own({ uShow: { value: 0 } }), transparent: true,
+          uniforms: own({ uShow: { value: 0 }, uBump: { value: 1 } }), transparent: true, extensions: { derivatives: true },
           vertexShader: `${NOISE} uniform float uTime, uPulse; varying vec3 vN; varying vec3 vV; varying vec3 vP;
             void main(){ vec3 p = position*(1.+uPulse*0.02*sin(position.y*9.-uTime*4.)); vec4 mv = modelViewMatrix*vec4(p,1.); vN = normalize(normalMatrix*normal); vV = -mv.xyz; vP = position; gl_Position = projectionMatrix*mv; }`,
-          fragmentShader: `${NOISE} uniform vec3 uAccent, uBase; uniform float uShow, uDim, uTime; varying vec3 vN; varying vec3 vV; varying vec3 vP;
+          fragmentShader: `${NOISE} uniform vec3 uAccent, uBase; uniform float uShow, uDim, uTime; uniform float uBump; varying vec3 vN; varying vec3 vV; varying vec3 vP;
             void main(){
               vec3 N = normalize(vN), V = normalize(vV);
               float nv = clamp(dot(N,V),0.,1.);
               float rim = pow(1.-nv, 3.2);
               vec3 L = normalize(vec3(-.8,.62,-.7));
               float lit = pow(max(dot(N,L)*.5+.5, 0.), 3.2);
-              float grain = snoise(vP*5.) * .5 + snoise(vP*13.) * .25;
-              vec3 col = uBase*(.012 + .016*grain) + uAccent*rim*lit*1.5 + uBase*.05*lit*lit;
+              vec3 q = normalize(vP);
+              float h0 = .55*snoise(q*2.2) + .28*snoise(q*5.1) + .14*snoise(q*11.) + .07*snoise(q*23.);
+              float cr = 1. - abs(snoise(q*4.3 + 7.)); cr = pow(cr, 5.);
+              float crr = 1. - abs(snoise(q*9.1 + 3.)); crr = pow(crr, 7.);
+              float hgt = h0 + .6*cr + .35*crr;
+              vec3 gh = vec3(dFdx(hgt), dFdy(hgt), 0.);
+              vec3 Nb = normalize(N - gh*vec3(1.6*uBump, 1.6*uBump, 0.));
+              float litB = pow(max(dot(Nb,L)*.5+.5, 0.), 2.4);
+              float limb = pow(1.-nv, 1.6);
+              float maria = smoothstep(-.1, .5, snoise(q*1.3 + 11.));
+              vec3 col = uBase*(.010 + .020*(hgt*.5+.5)*(1.-.4*maria)) + uAccent*limb*litB*(.55 + 1.6*(hgt*.5+.5)) + uAccent*rim*lit*1.1 + uBase*.07*litB*litB;
+              col += mix(uAccent, vec3(1.), .5) * cr * limb * litB * .35;
               gl_FragColor = vec4(col*uDim, uShow);
             }`
         })
@@ -264,7 +275,15 @@
               float rays = .55 + .45*snoise(vec3(cos(a)*4.5, sin(a)*4.5, uTime*.05 + 3.)) * snoise(vec3(cos(a)*1.7, sin(a)*1.7, r*.5 - uTime*.02));
               float I = (ring*(.35+1.35*side) + halo*(.10+.55*side)*streak*clamp(rays,.12,1.2)) * breathe * (1.+uPulse*.8);
               vec3 col = mix(uAccent, vec3(1.), ring*side*.55);
-              gl_FragColor = vec4(col*I*uShow*uDim, 1.);
+              /* the diamond ring: one bead of light where the sun slips out, with fine cross spikes */
+              vec2 dq = p - vec2(cos(la), sin(la)) * 1.0;
+              float bead = exp(-dot(dq,dq)*260.) * 3.2;
+              float sp1 = exp(-abs(dq.y)*70.) * exp(-abs(dq.x)*3.4);
+              float sp2 = exp(-abs(dq.x)*70.) * exp(-abs(dq.y)*3.4);
+              float flare = (bead + (sp1 + sp2) * .55) * (.75 + .25*sin(uTime*.7));
+              /* faint filaments streaming outward */
+              float fil = pow(max(0., snoise(vec3(a*14., r*2.6 - uTime*.04, 5.))), 3.) * exp(-max(edge,0.)*1.7) * step(0., edge) * (.2 + .8*side);
+              gl_FragColor = vec4((col*I + mix(uAccent, vec3(1.), .7)*flare + uAccent*fil*.55)*uShow*uDim, 1.);
             }`
         })
       );
@@ -291,7 +310,7 @@
       const orbit = new THREE.Group(); orbit.rotation.set(1.18, 0.18, -0.38);
       const ringMat = glass(1, 0, {});
       const ring = new THREE.Mesh(new THREE.TorusGeometry(1.8, 0.0045, 6, 260), ringMat);
-      const moon = new THREE.Mesh(new THREE.SphereGeometry(0.15, 40, 28), glass(0.55, 0.012, {}));
+      const moon = new THREE.Mesh(new THREE.SphereGeometry(0.11, 40, 28), glass(1, 0.012, {}));
       orbit.add(ring, moon);
       g.add(orbit);
       forms.eclipse = {
@@ -357,42 +376,67 @@
       };
     })();
 
-    /* 3 ─ ribbon ──────────────────────────────────────────────── */
+    /* 3 ─ ribbon: layered silk, each sheet made of fine iridescent strands ───────── */
     (() => {
       const g = new THREE.Group();
-      const segs = mobile ? 360 : 640, across = 14, W = 0.34;
+      const segs = mobile ? 360 : 700, across = 28;
       const C = t => new V3(Math.sin(t) + 2 * Math.sin(2 * t), Math.cos(t) - 2 * Math.cos(2 * t), -Math.sin(3 * t)).multiplyScalar(0.44);
-      const pos = [], uv = [], idx = [];
-      for (let i = 0; i <= segs; i++) {
-        const t = (i / segs) * TAU, e = 1e-3;
-        const p = C(t), p1 = C(t + e), p0 = C(t - e);
-        const T = p1.clone().sub(p0).normalize();
-        const acc = p1.clone().add(p0).sub(p.clone().multiplyScalar(2));
-        const Nn = acc.sub(T.clone().multiplyScalar(acc.dot(T))).normalize();
-        const B = new V3().crossVectors(T, Nn);
-        const phi = 1.5 * t;
-        const Wv = Nn.clone().multiplyScalar(Math.cos(phi)).addScaledVector(B, Math.sin(phi));
-        for (let j = 0; j <= across; j++) {
-          const v = (j / across) * 2 - 1;
-          const q = p.clone().addScaledVector(Wv, v * W);
-          pos.push(q.x, q.y, q.z); uv.push(i / segs);
+      const silk = new THREE.ShaderMaterial({
+        uniforms: own({ uShow: { value: 0 } }), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+        vertexShader: `uniform float uTime, uPulse; attribute float aU; attribute float aV; attribute float aL; varying vec3 vN; varying vec3 vV; varying float vU; varying float vW; varying float vL;
+          void main(){ vec3 p = position + normal * sin(aU*60. + uTime*.6 + aV*2.)*.006*(1.+uPulse*3.);
+            vec4 mv = modelViewMatrix*vec4(p,1.); vN = normalize(normalMatrix*normal); vV = -mv.xyz; vU = aU; vW = aV; vL = aL; gl_Position = projectionMatrix*mv; }`,
+        fragmentShader: `uniform vec3 uAccent; uniform float uShow, uDim, uTime; varying vec3 vN; varying vec3 vV; varying float vU; varying float vW; varying float vL;
+          void main(){
+            vec3 N = normalize(vN); if(!gl_FrontFacing) N = -N;
+            vec3 V = normalize(vV); float nv = clamp(dot(N,V), 0., 1.); float f = pow(1.-nv, 1.8);
+            float wob = sin(vU*38. + vL*5.) * .6 + sin(vU*91. - vL*3.) * .25;
+            float strand = pow(.5 + .5*sin(vW*(46. + 10.*vL) + wob + uTime*.12), 5.);
+            float fine = pow(.5 + .5*sin(vW*180. + vU*9.), 8.);
+            vec3 film = .5 + .5*cos(6.2832*(nv*1.3 + vU*2. + vL*.2 + vec3(0., .33, .67)));
+            vec3 hot = mix(uAccent, vec3(1.), .55);
+            float run = pow(max(0., sin((vU - uTime*.045)*25.13)), 22.);
+            float edge = 1. - pow(abs(vW), 3.);
+            vec3 col = uAccent*(.05 + f*.45) + mix(uAccent, film, .45)*strand*(.22 + .8*f) + hot*fine*.1 + film*f*.22 + hot*run*(.3 + f)*.9;
+            gl_FragColor = vec4(col*edge*uShow*uDim*.34, 1.);
+          }`
+      });
+      const sheet = (phiOff, W, sc, layer) => {
+        const pos = [], uv = [], av = [], al = [], idx = [];
+        for (let i = 0; i <= segs; i++) {
+          const t = (i / segs) * TAU, e = 1e-3;
+          const p = C(t).multiplyScalar(sc), p1 = C(t + e).multiplyScalar(sc), p0 = C(t - e).multiplyScalar(sc);
+          const T = p1.clone().sub(p0).normalize();
+          const acc = p1.clone().add(p0).sub(p.clone().multiplyScalar(2));
+          const Nn = acc.sub(T.clone().multiplyScalar(acc.dot(T))).normalize();
+          const B = new V3().crossVectors(T, Nn);
+          const phi = 1.5 * t + phiOff;
+          const Wv = Nn.clone().multiplyScalar(Math.cos(phi)).addScaledVector(B, Math.sin(phi));
+          const w = W * (.85 + .15 * Math.sin(t * 3 + layer));
+          for (let j = 0; j <= across; j++) {
+            const v = (j / across) * 2 - 1;
+            const q = p.clone().addScaledVector(Wv, v * w).addScaledVector(Nn.clone().cross(Wv).normalize(), Math.sin(v * 2.2 + t * 4 + layer) * .025);
+            pos.push(q.x, q.y, q.z); uv.push(i / segs); av.push(v); al.push(layer);
+          }
         }
-      }
-      for (let i = 0; i < segs; i++) for (let j = 0; j < across; j++) {
-        const a = i * (across + 1) + j, b = a + across + 1;
-        idx.push(a, b, a + 1, b, b + 1, a + 1);
-      }
-      const geo = new THREE.BufferGeometry();
-      geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-      geo.setAttribute('aU', new THREE.Float32BufferAttribute(uv, 1));
-      geo.setIndex(idx);
-      geo.computeVertexNormals();
-      const mat = glass(1, 0.018, { uRun: { value: 1 } });
-      g.add(new THREE.Mesh(geo, mat));
-      const pts = []; for (let i = 0; i < 160; i++) pts.push(C((i / 160) * TAU));
-      const spine = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true), 480, 0.011, 6, true), glass(1, 0, {}));
+        for (let i = 0; i < segs; i++) for (let j = 0; j < across; j++) {
+          const a = i * (across + 1) + j, b = a + across + 1;
+          idx.push(a, b, a + 1, b, b + 1, a + 1);
+        }
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+        geo.setAttribute('aU', new THREE.Float32BufferAttribute(uv, 1));
+        geo.setAttribute('aV', new THREE.Float32BufferAttribute(av, 1));
+        geo.setAttribute('aL', new THREE.Float32BufferAttribute(al, 1));
+        geo.setIndex(idx); geo.computeVertexNormals();
+        const m = new THREE.Mesh(geo, silk); m.frustumCulled = false; return m;
+      };
+      g.add(sheet(0, .36, 1.0, 0), sheet(.9, .24, 1.06, 1), sheet(-.8, .16, .94, 2));
+      /* three hair-thin strands tracing the path */
+      const pts = []; for (let i = 0; i < 200; i++) pts.push(C((i / 200) * TAU));
+      const spine = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true), 600, 0.008, 5, true), glass(1, 0, { uRun: { value: 1 } }));
       g.add(spine);
-      forms.ribbon = { group: g, mats: [mat, spine.material], scale: 1.0, update(t) { g.rotation.y = t * 0.08; g.rotation.x = 0.35 + Math.sin(t * 0.13) * 0.12; g.rotation.z = t * 0.02; } };
+      forms.ribbon = { group: g, mats: [silk, spine.material], scale: 1.0, update(t) { g.rotation.y = t * 0.08; g.rotation.x = 0.35 + Math.sin(t * 0.13) * 0.12; g.rotation.z = t * 0.02; } };
     })();
 
     /* 4 ─ tree ────────────────────────────────────────────────── */
@@ -401,7 +445,7 @@
       let seed = 1234567;
       const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
       const segs = [];
-      const MAXD = mobile ? 6 : 7;
+      const MAXD = mobile ? 7 : 8;
       const grow = (a, dir, len, d, birth) => {
         const b = a.clone().addScaledVector(dir, len);
         segs.push({ a, b, d, birth, w: Math.max(0.8, 3.2 * Math.pow(0.7, d)) });
@@ -486,9 +530,47 @@
       }));
       sparks.frustumCulled = false;
       g.add(sparks);
+      /* leaves of light: thousands of tiny points along the outer twigs, in slightly different hues */
+      const outer = segs.filter(s => s.d >= MAXD - 2), perSeg = mobile ? 2 : 4;
+      const lp = new Float32Array(outer.length * perSeg * 3), lm = new Float32Array(outer.length * perSeg * 3);
+      outer.forEach((s, i) => { for (let k = 0; k < perSeg; k++) {
+        const t = .35 + rnd() * .65, j = (i * perSeg + k) * 3;
+        lp.set([s.a.x + (s.b.x - s.a.x) * t + (rnd() - .5) * .08, s.a.y + (s.b.y - s.a.y) * t + (rnd() - .5) * .08, s.a.z + (s.b.z - s.a.z) * t + (rnd() - .5) * .08], j);
+        lm.set([s.birth + rnd() * .06, rnd(), rnd()], j);
+      } });
+      const lg = new THREE.BufferGeometry();
+      lg.setAttribute('position', new THREE.BufferAttribute(lp, 3)); lg.setAttribute('aM', new THREE.BufferAttribute(lm, 3));
+      const leaves = new THREE.Points(lg, new THREE.ShaderMaterial({
+        uniforms: own(gl), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+        vertexShader: `uniform float uTime, uPx, uFade; attribute vec3 aM; varying vec3 vM;
+          void main(){ vM = aM; vec3 pp = position + vec3(sin(uTime*.6 + aM.y*40.)*.02, sin(uTime*.5 + aM.z*30.)*.02, 0.);
+            pp += vec3(sin(aM.y*91.)*.6, -(.3 + aM.z*.9), cos(aM.z*57.)*.6) * uFade * 1.4 * aM.y;
+            vec4 mv = modelViewMatrix*vec4(pp,1.); gl_Position = projectionMatrix*mv; gl_PointSize = (2.2 + 4.5*aM.z)*uPx*(7./-mv.z); }`,
+        fragmentShader: `uniform vec3 uAccent; uniform float uGrow, uFade, uShow, uDim, uTime; varying vec3 vM;
+          void main(){ vec2 c = gl_PointCoord*2.-1.; float d = dot(c,c); if(d>1.) discard;
+            float reveal = smoothstep(vM.x, vM.x+.1, uGrow*1.35); float gone = 1.-smoothstep(.1, 1., uFade*(.6+vM.y*.8));
+            vec3 hue = .5 + .5*cos(6.2832*(vM.y*.25 + vec3(0., .33, .67)));
+            vec3 col = mix(uAccent, hue, .25 + .25*vM.z); col = mix(col, vec3(1.), .25*vM.z);
+            float tw = .55 + .45*sin(uTime*(.8 + vM.y*2.) + vM.z*50.);
+            gl_FragColor = vec4(col*smoothstep(1.,0.,d)*reveal*gone*tw*uShow*uDim*.75, 1.); }`
+      }));
+      leaves.frustumCulled = false;
+      g.add(leaves);
+      /* the ground: a pool of light with slow rings spreading from the roots */
+      const ground = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), new THREE.ShaderMaterial({
+        uniforms: own(gl), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+        vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }',
+        fragmentShader: `uniform vec3 uAccent; uniform float uGrow, uFade, uShow, uDim, uTime; varying vec2 vUv;
+          void main(){ float r = length(vUv-.5)*2.; float pool = exp(-r*r*7.);
+            float ring = pow(max(0., sin(r*18. - uTime*.7)), 6.) * exp(-r*3.2) * .55;
+            float a = pool*.34 + ring; float show = smoothstep(0., .25, uGrow) * (1. - smoothstep(.5, 1., uFade));
+            gl_FragColor = vec4(uAccent*a*show*uShow*uDim, 1.); }`
+      }));
+      ground.rotation.x = -Math.PI / 2 + 0.28; ground.position.y = -1.55;
+      g.add(ground);
       let phase = 0;
       forms.tree = {
-        group: g, mats: [mat, sparks.material], scale: 0.92, gl,
+        group: g, mats: [mat, sparks.material, leaves.material, ground.material], scale: 0.92, gl,
         restart() { phase = 0; },
         update(t, pulse, dt) {
           if (still) { gl.uGrow.value = 1; gl.uFade.value = 0; g.rotation.y = 0.2; return; }
@@ -519,6 +601,54 @@
     }
     pushColors();
 
+    /* ── bloom + vignette + a whisper of chromatic fringe ── */
+    const qScene = new THREE.Scene(), qCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const qMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), null); qMesh.frustumCulled = false; qScene.add(qMesh);
+    const QV = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }';
+    const pm = (frag, u) => new THREE.ShaderMaterial({ uniforms: u, vertexShader: QV, fragmentShader: frag, depthTest: false, depthWrite: false });
+    const bright = pm(`uniform sampler2D tDiffuse; varying vec2 vUv;
+      void main(){ vec3 c = texture2D(tDiffuse, vUv).rgb; float l = max(c.r, max(c.g, c.b)); gl_FragColor = vec4(c * smoothstep(.26, .85, l), 1.); }`, { tDiffuse: { value: null } });
+    const blur = pm(`uniform sampler2D tDiffuse; uniform vec2 uDir; varying vec2 vUv;
+      void main(){ vec3 s = texture2D(tDiffuse, vUv).rgb * .227027;
+        s += (texture2D(tDiffuse, vUv + uDir*1.3846).rgb + texture2D(tDiffuse, vUv - uDir*1.3846).rgb) * .3162162;
+        s += (texture2D(tDiffuse, vUv + uDir*3.2308).rgb + texture2D(tDiffuse, vUv - uDir*3.2308).rgb) * .0702703;
+        gl_FragColor = vec4(s, 1.); }`, { tDiffuse: { value: null }, uDir: { value: new THREE.Vector2() } });
+    const comp = pm(`uniform sampler2D tBase, tB1, tB2; uniform float uStr; varying vec2 vUv;
+      void main(){
+        vec2 q = vUv - .5; float r = length(q);
+        vec2 o = q * (.0015 + .0035*r*r);
+        vec3 b = vec3(texture2D(tBase, vUv + o).r, texture2D(tBase, vUv).g, texture2D(tBase, vUv - o).b);
+        vec3 g = texture2D(tB1, vUv).rgb * .55 + texture2D(tB2, vUv).rgb * .95;
+        vec3 c = b + g * uStr;
+        c *= mix(1., smoothstep(.95, .25, r), .5);
+        gl_FragColor = vec4(c, 1.); }`, { tBase: { value: null }, tB1: { value: null }, tB2: { value: null }, uStr: { value: 1 } });
+    let post = null, usePost = renderer.capabilities.isWebGL2 && !mobile;
+    function mkRT(w, h, ms) {
+      return new THREE.WebGLRenderTarget(Math.max(1, w | 0), Math.max(1, h | 0), { samples: ms ? 4 : 0, depthBuffer: !!ms, stencilBuffer: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
+    }
+    function buildPost() {
+      if (post) Object.values(post).forEach(t => { if (t.dispose) t.dispose(); });
+      post = null;
+      if (!usePost) return;
+      try {
+        const sz = renderer.getDrawingBufferSize(new THREE.Vector2());
+        post = { main: mkRT(sz.x, sz.y, true), a: mkRT(sz.x / 2, sz.y / 2), b: mkRT(sz.x / 2, sz.y / 2), c: mkRT(sz.x / 4, sz.y / 4), d: mkRT(sz.x / 4, sz.y / 4) };
+        post.size = sz;
+      } catch (e) { post = null; usePost = false; }
+    }
+    function pass(mat, target) { qMesh.material = mat; renderer.setRenderTarget(target); renderer.render(qScene, qCam); }
+    function blurPass(src, dst, w, h, dx, dy) { blur.uniforms.tDiffuse.value = src.texture; blur.uniforms.uDir.value.set(dx / w, dy / h); pass(blur, dst); }
+    function renderPost() {
+      renderer.setRenderTarget(post.main); renderer.render(scene, camera);
+      const sz = post.size, hw = sz.x / 2, hh = sz.y / 2, qw = sz.x / 4, qh = sz.y / 4;
+      bright.uniforms.tDiffuse.value = post.main.texture; pass(bright, post.a);
+      blurPass(post.a, post.b, hw, hh, 1, 0); blurPass(post.b, post.a, hw, hh, 0, 1);
+      blurPass(post.a, post.c, qw, qh, 1.4, 0); blurPass(post.c, post.d, qw, qh, 0, 1.4);
+      blurPass(post.d, post.c, qw, qh, 2.2, 0); blurPass(post.c, post.d, qw, qh, 0, 2.2);
+      comp.uniforms.tBase.value = post.main.texture; comp.uniforms.tB1.value = post.a.texture; comp.uniforms.tB2.value = post.d.texture;
+      pass(comp, null);
+    }
+
     let want = 'eclipse', view = 'today', dim = 1, dimT = 1, paused = false, raf = 0, pulse = 0, last = performance.now();
     let burstT = 1, holdUntil = 0, scrollK = 0, scrollS = 0, low = false, frames = 0, slow = 0, curShape = 'eclipse';
     const target = new THREE.Vector2(), mouse = new THREE.Vector2();
@@ -539,7 +669,7 @@
 
     function low0() { return false; }
     function setLow(v) {
-      low = v; dust.visible = !v;
+      low = v; dust.visible = !v; if (v) usePost = false;
       if (forms.shards && forms.shards.threads) forms.shards.threads.visible = !v;
       bg.setDrawRange(0, v ? Math.floor(NB * 0.4) : NB);
       resize();
@@ -552,6 +682,7 @@
       camera.aspect = aspect; camera.fov = aspect < 1 ? Math.min(60, 35 + (1 - aspect) * 45) : 35;
       camera.updateProjectionMatrix();
       U.uRes.value.set(w * dpr, h * dpr); U.uPx.value = dpr;
+      buildPost();
       layout();
       if (still || paused) drawOnce();
     }
@@ -564,7 +695,7 @@
     }
 
     let time = 0;
-    function frame(dt) {
+    function frame(dt, noRender) {
       time += dt;
       U.uTime.value = time;
       pulse *= Math.pow(0.18, dt); U.uPulse.value = pulse;
@@ -600,7 +731,8 @@
         if (f.edges) f.edges.forEach(m => { m.opacity = f.mix * dim; });
         f.update(time, pulse, dt);
       }
-      renderer.render(scene, camera);
+      if (noRender) return;
+      if (post && usePost) renderPost(); else { renderer.setRenderTarget(null); renderer.render(scene, camera); }
     }
     function drawOnce() { frame(0.016); }
     function loop(now) {
@@ -613,7 +745,7 @@
     forms.eclipse.mix = 1; forms.eclipse.group.visible = true;
     if (still) { for (let i = 0; i < 6; i++) frame(0.5); } else raf = requestAnimationFrame(loop);
 
-    return {
+    const api = {
       ok: true,
       setColors(fx, snap) {
         tgt.accent = fx.accent.slice(); tgt.base = fx.base.slice(); tgt.bg = fx.bg.slice();
@@ -637,8 +769,10 @@
       pause() { paused = true; },
       resume() { paused = false; last = performance.now(); if (still) drawOnce(); },
       forms: FORMS,
-      tick(sec) { const n = Math.ceil(sec / 0.05); for (let i = 0; i < n; i++) frame(0.05); }
+      tick(sec) { const n = Math.ceil(sec / 0.05); for (let i = 0; i < n; i++) frame(0.05, i < n - 1); }
     };
+    window.__wanderscene = api;
+    return api;
   }
 
   window.WanderScene = { create, FORMS };
