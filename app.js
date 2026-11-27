@@ -1,6 +1,6 @@
 /* WANDERSPACE — app logic.
-   Sections: data · helpers · colour themes · particle field · length check
-             · picking · rendering · player · wiring                         */
+   Sections: data · helpers · colour themes · 3D scene (scene.js) · length check
+             · picking · rendering · views · actions · watch page · wiring    */
 (() => {
   'use strict';
 
@@ -45,6 +45,9 @@
 
   const state = {
     current: null,
+    view: 'today',        // 'today' | 'explore' | 'saved' | 'watch'
+    from: 'today',        // where the watch page returns to
+    env: null,            // an environment picked by hand from the cards
     mode: 'today',        // 'today' | 'random' | 'chosen'
     chosen: false,        // user clicked this one on purpose (never auto-skipped)
     filter: 'all',
@@ -171,198 +174,17 @@
     };
   }
 
-  /* ─────────────────────────── particle field ───────────────────── */
-  /* The AXON reference ring: a twisted hollow torus of points, additive blending,
-     cursor swirl. Colours are uniforms so the theme can change live. */
+  /* ───────────────────────────── 3D scene ───────────────────────── */
   const FX = (() => {
-    const noop = { setColors() {}, pulse() {}, pause() {}, resume() {} };
-    const canvas = $('#bg');
-    const THREE = window.THREE;
-    if (!canvas || !THREE) { document.body.classList.add('no-webgl'); return noop; }
-
-    let renderer;
-    try {
-      renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false, powerPreference: 'high-performance' });
-    } catch (e) { document.body.classList.add('no-webgl'); return noop; }
-
-    const TAU = Math.PI * 2;
-    const mobile = window.matchMedia('(max-width: 920px)').matches;
-    const count = mobile ? 26000 : 60000;
-    const still = reduceMotion();
-
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 1000);
-    const baseCamera = new THREE.Vector3(-1.17, 0, 6);
-    camera.position.copy(baseCamera);
-    const group = new THREE.Group();
-    group.position.set(0.46, 0.12, -0.35);
-    group.rotation.set(THREE.MathUtils.degToRad(-10), THREE.MathUtils.degToRad(18), THREE.MathUtils.degToRad(4));
-    group.scale.set(1.7, 1.7, 1.7);
-    scene.add(group);
-
-    const positions = new Float32Array(count * 3);
-    const randoms = new Float32Array(count * 4);
-    const gaussian = () => {
-      let u = 0, v = 0;
-      while (u === 0) u = Math.random();
-      while (v === 0) v = Math.random();
-      return Math.sqrt(-2 * Math.log(u)) * Math.cos(TAU * v);
-    };
-    for (let i = 0; i < count; i++) {
-      const theta = Math.random() * TAU, phi = Math.random() * TAU;
-      const tube = 0.23 * (0.78 + Math.random() * 0.34);
-      const radius = 0.88 + 0.055 * Math.sin(theta * 3.0) + 0.035 * Math.sin(theta * 7.0 + 0.8);
-      const twist = phi + theta * 0.74 + 0.15 * Math.sin(theta * 2.0);
-      const ringRadius = radius + tube * Math.cos(twist);
-      const jitter = 0.012 * gaussian();
-      const i3 = i * 3, i4 = i * 4;
-      positions[i3]     = ringRadius * Math.cos(theta) + jitter;
-      positions[i3 + 1] = ringRadius * Math.sin(theta) + jitter;
-      positions[i3 + 2] = tube * Math.sin(twist) + 0.06 * Math.cos(theta * 2.0) + jitter * 0.65;
-      randoms[i4] = Math.random(); randoms[i4 + 1] = Math.random(); randoms[i4 + 2] = Math.random(); randoms[i4 + 3] = Math.random();
-    }
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geometry.setAttribute('aRandom', new THREE.BufferAttribute(randoms, 4));
-    geometry.computeBoundingSphere();
-
-    const material = new THREE.ShaderMaterial({
-      uniforms: {
-        uTime: { value: 0 }, uMouse: { value: new THREE.Vector2() }, uEnergy: { value: 0 },
-        uPixelRatio: { value: 1 }, uPulse: { value: 0 },
-        uBase: { value: new THREE.Vector3(0.5, 0.51, 0.54) },
-        uAccent: { value: new THREE.Vector3(0.68, 0.51, 1.0) }
-      },
-      vertexShader: `
-        attribute vec4 aRandom;
-        uniform float uTime; uniform vec2 uMouse; uniform float uEnergy; uniform float uPixelRatio; uniform float uPulse;
-        varying float vTint; varying float vAlpha;
-        void main() {
-          vec3 p = position;
-          float softClock = uTime * 0.22 + aRandom.x * 6.2831;
-          vec2 delta = p.xy * 0.9 - uMouse * 0.72;
-          float influence = exp(-dot(delta, delta) * 2.75) * uEnergy;
-          vec3 swirlAxis = normalize(vec3(-delta.y, delta.x, 0.24 + sin(p.z * 4.0 + uTime) * 0.04));
-          p += swirlAxis * influence * (0.17 + aRandom.y * 0.08);
-          p += vec3(sin(p.y * 4.1 + softClock), cos(p.z * 4.7 - softClock * 0.73), sin(p.x * 3.8 + softClock * 0.51)) * (0.009 + uEnergy * 0.024);
-          p *= 1.0 + sin(uTime * 0.32 + aRandom.x * 6.2831) * 0.008;
-          p.xy *= 1.0 + uPulse * 0.10 * (0.4 + aRandom.y);
-          vec4 mv = modelViewMatrix * vec4(p, 1.0);
-          gl_Position = projectionMatrix * mv;
-          float dist = max(1.0, -mv.z);
-          float sparkle = pow(aRandom.z, 80.0);
-          gl_PointSize = clamp((11.0 / dist) * (0.55 + aRandom.y * 0.9 + sparkle * 1.8) * uPixelRatio, 0.8, 7.0);
-          vTint = min(1.0, pow(aRandom.z, 8.0) + uPulse * 0.4 * aRandom.w);
-          vAlpha = (0.6 + 0.4 * sin(uTime * 2.8 + aRandom.y * 18.0) * sparkle) * (1.0 + uPulse * 0.5);
-        }`,
-      fragmentShader: `
-        uniform vec3 uBase; uniform vec3 uAccent;
-        varying float vTint; varying float vAlpha;
-        void main() {
-          vec2 uv = gl_PointCoord * 2.0 - 1.0;
-          float d = dot(uv, uv);
-          if (d > 1.0) discard;
-          float soft = smoothstep(1.0, 0.02, d);
-          vec3 color = mix(uBase, uAccent, vTint);
-          color += smoothstep(0.48, 0.0, d) * 0.3;
-          gl_FragColor = vec4(color, soft * vAlpha * 0.88);
-        }`,
-      transparent: true, depthTest: true, depthWrite: false, blending: THREE.AdditiveBlending
-    });
-    const points = new THREE.Points(geometry, material);
-    points.frustumCulled = false;
-    group.add(points);
-
-    /* colours lerp toward a target so a theme change glides instead of snapping */
-    const cur = { accent: [0.68, 0.51, 1], base: [0.5, 0.51, 0.54], bg: [0, 0, 0] };
-    const tgt = { accent: [0.68, 0.51, 1], base: [0.5, 0.51, 0.54], bg: [0, 0, 0] };
-    const clearColor = new THREE.Color();
-    function pushColors() {
-      material.uniforms.uAccent.value.set(cur.accent[0], cur.accent[1], cur.accent[2]);
-      material.uniforms.uBase.value.set(cur.base[0], cur.base[1], cur.base[2]);
-      clearColor.setRGB(cur.bg[0], cur.bg[1], cur.bg[2]);
-      renderer.setClearColor(clearColor, 1);
-    }
-    function lerpColors(k) {
-      let moving = false;
-      ['accent', 'base', 'bg'].forEach(key => {
-        for (let i = 0; i < 3; i++) {
-          const d = tgt[key][i] - cur[key][i];
-          if (Math.abs(d) > 0.0005) { cur[key][i] += d * k; moving = true; } else cur[key][i] = tgt[key][i];
-        }
-      });
-      if (moving) pushColors();
-      return moving;
-    }
-    pushColors();
-
-    const targetMouse = new THREE.Vector2(), smoothMouse = new THREE.Vector2();
-    let lastPointer = null, energy = 0, pulse = 0, paused = false, raf = 0;
-    let lastTime = performance.now(), frames = 0, slow = 0, degraded = false;
-    const clock = new THREE.Clock();
-
-    function onPointer(x, y) {
-      if (lastPointer) energy = Math.min(1, energy + Math.min(0.12, Math.hypot(x - lastPointer.x, y - lastPointer.y) / 90));
-      lastPointer = { x, y };
-      targetMouse.set((x / window.innerWidth) * 2 - 1, -((y / window.innerHeight) * 2 - 1));
-    }
-    if (!still) {
-      window.addEventListener('pointermove', e => onPointer(e.clientX, e.clientY), { passive: true });
-      window.addEventListener('pointerleave', () => { lastPointer = null; }, { passive: true });
-      window.addEventListener('touchmove', e => { if (e.touches[0]) onPointer(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
-    }
-
-    function resize() {
-      const w = window.innerWidth, h = window.innerHeight;
-      const dpr = Math.min(window.devicePixelRatio || 1, degraded ? 1 : (mobile ? 1.5 : 2));
-      renderer.setPixelRatio(dpr);
-      renderer.setSize(w, h, false);
-      camera.aspect = w / Math.max(h, 1);
-      camera.fov = camera.aspect < 1 ? Math.min(62, 30 + (1 - camera.aspect) * 48) : 30;
-      camera.updateProjectionMatrix();
-      material.uniforms.uPixelRatio.value = dpr;
-      if (still || paused) drawOnce();
-    }
-    function drawOnce() { camera.lookAt(0.26, 0.08, 0); renderer.render(scene, camera); }
-    window.addEventListener('resize', resize, { passive: true });
-    resize();
-
-    function animate(now) {
-      raf = requestAnimationFrame(animate);
-      if (paused) return;
-      const raw = (now - lastTime) / 1000 || 0.016;
-      const delta = Math.min(0.05, raw);
-      lastTime = now;
-      /* if the first second of frames is very slow, thin the cloud once */
-      frames++;
-      if (!degraded && frames > 30 && frames <= 90) { slow += raw; if (frames === 90 && slow / 60 > 0.04) { degraded = true; geometry.setDrawRange(0, Math.floor(count * 0.4)); resize(); } }
-
-      smoothMouse.lerp(targetMouse, 0.08);
-      energy *= Math.pow(0.035, delta);
-      pulse *= Math.pow(0.12, delta);
-      lerpColors(1 - Math.exp(-delta * 7));
-      material.uniforms.uTime.value = clock.getElapsedTime();
-      material.uniforms.uMouse.value.copy(smoothMouse);
-      material.uniforms.uEnergy.value = energy;
-      material.uniforms.uPulse.value = pulse;
-      camera.position.lerp(new THREE.Vector3(baseCamera.x - smoothMouse.x * 0.28, baseCamera.y + smoothMouse.y * 0.16, baseCamera.z), 0.045);
-      camera.lookAt(0.26, 0.08, 0);
-      group.rotation.y += delta * 0.018;
-      group.rotation.z += delta * 0.006;
-      renderer.render(scene, camera);
-    }
-    if (still) drawOnce(); else raf = requestAnimationFrame(animate);
-
-    return {
-      setColors(fx, snap) {
-        tgt.accent = fx.accent.slice(); tgt.base = fx.base.slice(); tgt.bg = fx.bg.slice();
-        if (snap || still) { cur.accent = fx.accent.slice(); cur.base = fx.base.slice(); cur.bg = fx.bg.slice(); pushColors(); if (still) drawOnce(); }
-      },
-      pulse() { if (!still) { pulse = 1; energy = Math.min(1, energy + 0.8); } },
-      pause() { paused = true; },
-      resume() { paused = false; lastTime = performance.now(); if (still) drawOnce(); }
-    };
+    const noop = { setColors() {}, setForm() {}, setView() {}, pulse() {}, pause() {}, resume() {} };
+    const scene = window.WanderScene && window.WanderScene.create($('#bg'), { still: reduceMotion() });
+    if (!scene || !scene.ok) { document.body.classList.add('no-webgl'); return noop; }
+    return scene;
   })();
+
+  /* each idea has a shape: the first theme of a video picks the environment */
+  const FORM_OF = { mortality: 'eclipse', evil: 'eclipse', identity: 'shards', existentialism: 'ribbon', absurd: 'ribbon', stoicism: 'ribbon', meaning: 'tree', love: 'tree' };
+  const formOf = v => FORM_OF[(v && v.themes && v.themes[0]) || 'meaning'] || 'tree';
 
   /* ───────────────────────────── theme UI ───────────────────────── */
   let theme = Object.assign({ id: 'lavender', custom: '#aa88ff' }, load(KEYS.theme, {}));
@@ -549,14 +371,13 @@
   }
 
   function matchesFilter(v) {
+    if (state.view === 'saved') return saved.has(v.id);
     if (state.filter === 'all') return true;
-    if (state.filter === 'saved') return saved.has(v.id);
     return Array.isArray(v.themes) && v.themes.includes(state.filter);
   }
 
   function nextRandom() {
-    let pool = VIDEOS.filter(v => eligible(v) && v !== state.current && matchesFilter(v));
-    if (!pool.length) pool = VIDEOS.filter(v => eligible(v) && v !== state.current);
+    const pool = VIDEOS.filter(v => eligible(v) && v !== state.current);
     if (!pool.length) return null;
     const fresh = pool.filter(v => !state.recent.includes(v.id));
     const from = fresh.length ? fresh : pool;
@@ -581,44 +402,25 @@
   function renderState() {
     const v = state.current;
     const bits = [];
-    if (v && saved.has(v.id)) bits.push('SAVED TO YOUR SHELF');
-    if (v && watched.has(v.id)) bits.push('WATCHED');
+    if (v && saved.has(v.id)) bits.push('Saved');
+    if (v && watched.has(v.id)) bits.push('Watched');
     $('#f-state').textContent = state.notice || bits.join('  ·  ');
   }
 
-  function renderTags() {
-    const nav = $('#tags');
-    const present = THEME_ORDER.filter(t => VIDEOS.some(v => (v.themes || []).includes(t)));
-    const items = [['all', 'All'], ...present.map(t => [t, t]), ['saved', `♥ Saved`]];
-    nav.replaceChildren();
-    items.forEach(([key, label]) => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'chip' + (state.filter === key ? ' active' : '');
-      b.textContent = label;
-      b.setAttribute('aria-pressed', String(state.filter === key));
-      b.addEventListener('click', () => { state.filter = key; renderTags(); renderList(); });
-      nav.appendChild(b);
-    });
-  }
-
   const cardEls = new Map();
-  function cardMeta(v) {
-    const themes = (v.themes || []).slice(0, 2).join(' / ');
-    return { sub: `${v.by} / ${themes}${v.lang ? ' / ' + v.lang : ''}`, right: `${String(v.n).padStart(3, '0')}\n${durBadge(v)}` };
-  }
+  const themeLine = v => (v.themes || []).slice(0, 2).join(' · ');
   function buildCard(v) {
     const el = document.createElement('div');
     el.className = 'card';
     el.dataset.id = v.id;
     el.tabIndex = 0;
     el.setAttribute('role', 'button');
-    el.setAttribute('aria-label', `Show ${v.title}`);
-    el.innerHTML = '<div class="thumb"><img loading="lazy" decoding="async" alt="" /><span class="mark" hidden></span><span class="badge"></span></div><div class="meta"><div><span class="t"></span><span class="s"></span></div><div class="r"></div></div>';
+    el.setAttribute('aria-label', `Watch ${v.title}`);
+    el.innerHTML = '<div class="thumb"><img loading="lazy" decoding="async" alt="" /><span class="mark" hidden></span><span class="badge"></span></div><div class="meta"><span class="t"></span><span class="s"></span></div>';
     $('img', el).src = thumbUrl(v);
     $('img', el).addEventListener('error', e => { e.target.removeAttribute('src'); });
     $('.t', el).textContent = v.title;
-    const open = () => show(v, 'chosen', { animate: true, chosen: true });
+    const open = () => { show(v, 'chosen', { animate: true, chosen: true }); watch(v); };
     el.addEventListener('click', open);
     el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
     cardEls.set(v.id, el);
@@ -628,62 +430,74 @@
   function updateCard(v) {
     const el = cardEls.get(v.id);
     if (!el) return;
-    const m = cardMeta(v);
-    $('.s', el).textContent = m.sub;
-    $('.r', el).textContent = m.right;
+    $('.s', el).textContent = `${v.by} · ${themeLine(v)}`;
     const badge = $('.badge', el);
-    badge.textContent = v.blocked ? 'OVER 25 MIN' : durBadge(v);
+    badge.textContent = v.blocked ? 'Over 25 min' : durBadge(v);
     badge.classList.toggle('warn', v.blocked || v.dead);
     const mark = $('.mark', el);
-    const flags = (saved.has(v.id) ? '♥' : '') + (watched.has(v.id) ? '✓' : '');
+    const flags = (saved.has(v.id) ? '♥' : '') + (watched.has(v.id) ? ' ✓' : '');
     mark.textContent = flags; mark.hidden = !flags;
     el.classList.toggle('current', state.current === v);
   }
-  function renderList() {
-    const list = $('#list');
-    list.replaceChildren();
+
+  function renderTags() {
+    const nav = $('#tags');
+    if (!nav) return;
+    const present = THEME_ORDER.filter(t => VIDEOS.some(v => (v.themes || []).includes(t)));
+    nav.replaceChildren();
+    [['all', 'All'], ...present.map(t => [t, t])].forEach(([key, label]) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'tag' + (state.filter === key ? ' active' : '');
+      b.textContent = label;
+      b.setAttribute('aria-pressed', String(state.filter === key));
+      b.addEventListener('click', () => { state.filter = key; renderTags(); renderGrid(); });
+      nav.appendChild(b);
+    });
+  }
+
+  function renderGrid() {
+    const grid = $('#grid');
+    grid.replaceChildren();
     const shown = VIDEOS.filter(matchesFilter);
     if (!shown.length) {
       const d = document.createElement('div');
       d.className = 'empty';
-      d.textContent = state.filter === 'saved' ? 'Nothing saved yet. Tap ♡ on any video.' : 'Nothing here yet.';
-      list.appendChild(d);
+      d.textContent = state.view === 'saved' ? 'Nothing saved yet. Tap the heart on any video.' : 'Nothing here yet.';
+      grid.appendChild(d);
       return;
     }
-    shown.forEach(v => list.appendChild(cardEls.get(v.id) || buildCard(v)));
+    shown.forEach(v => grid.appendChild(cardEls.get(v.id) || buildCard(v)));
     VIDEOS.forEach(updateCard);
   }
 
-  let scrambleToken = 0;
-  function scramble(el, text, animate) {
-    const tok = ++scrambleToken;
-    if (!animate || reduceMotion()) { el.textContent = text; return; }
-    const glyphs = '▒░/\\+*#<>';
-    const start = performance.now(), dur = 420;
-    const step = now => {
-      if (tok !== scrambleToken) return;
-      const t = clamp((now - start) / dur, 0, 1);
-      const reveal = Math.floor(text.length * t);
-      let out = '';
-      for (let i = 0; i < text.length; i++) out += i < reveal || text[i] === ' ' ? text[i] : glyphs[Math.floor(Math.random() * glyphs.length)];
-      el.textContent = t >= 1 ? text : out;
-      if (t < 1) requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
+  function renderLibrary() {
+    const isSaved = state.view === 'saved';
+    $('#lib-title').textContent = isSaved ? 'Saved' : 'Explore ideas';
+    $('#lib-sub').textContent = isSaved ? 'The ones you kept for later.' : 'A small, hand-picked library of philosophy told through stories, art and film.';
+    $('#tags').hidden = isSaved;
+    renderTags();
+    renderGrid();
   }
 
-  function dateStamp() {
-    return new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'short', day: '2-digit' }).format(new Date()).replace(',', ' ·');
+  function kickerText() {
+    return state.mode === 'today' ? "Today's recommendation" : state.mode === 'random' ? 'Another wander' : 'From the shelf';
+  }
+
+  function syncNotes() {
+    const key = localDayKey();
+    const text = notes[key] || '';
+    [['#note', '#note-status', '#note-count'], ['#w-note', '#w-note-status', '#w-note-count']].forEach(([t, st, c]) => {
+      const ta = $(t);
+      if (document.activeElement !== ta) ta.value = text;
+      $(st).textContent = text ? 'Private, reflection saved' : 'Private, kept on this device';
+      $(c).textContent = String(ta.value.length);
+    });
   }
 
   function fillFeature(v, animate) {
     if (!v) return;
-    const now = new Date();
-    $('#f-kicker').textContent =
-      state.mode === 'today' ? `[today · ${pad2(dayOfYear(now))}/${daysInYear(now)}]`
-      : state.mode === 'random' ? '[wander · refreshed]' : '[wander · from the shelf]';
-    $('#f-date').textContent = dateStamp();
-
+    $('#f-kicker').textContent = kickerText();
     const img = $('#f-img');
     if (img.dataset.id !== v.id) {
       img.dataset.id = v.id;
@@ -691,28 +505,21 @@
       img.src = thumbUrl(v);
     }
     const dur = $('#f-dur');
-    dur.textContent = v.blocked ? 'OVER 25 MIN' : durBadge(v);
+    dur.textContent = v.blocked ? 'Over 25 min' : durBadge(v);
     dur.classList.toggle('warn', v.blocked || v.dead);
-
-    scramble($('#f-title'), v.title, animate);
+    $('#f-title').textContent = v.title;
 
     const meta = $('#f-meta');
     meta.replaceChildren();
     const by = document.createElement('b');
     by.textContent = v.by;
-    meta.append(by, document.createElement('br'),
-      document.createTextNode(`${(v.themes || []).join(' / ')}${v.lang ? ' / ' + v.lang : ''} · ${durLong(v)}`));
+    meta.append(by, document.createTextNode(` · ${durLong(v)}`));
     if (v.blocked) meta.append(document.createElement('br'), document.createTextNode('Longer than 25 minutes: shown because you picked it.'));
 
     $('#f-blurb').textContent = v.blurb || '';
     $('#f-ask').textContent = v.ask || '';
-    $('#f-yt').href = ytUrl(v);
-
-    const key = localDayKey();
-    const noteEl = $('#note');
-    if (document.activeElement !== noteEl) noteEl.value = notes[key] || '';
-    $('#note-status').textContent = notes[key] ? 'Private / note saved' : 'Private / saved on this device';
-
+    $('#reflect-h').textContent = v.ask || '';
+    syncNotes();
     syncActionButtons(v);
     $('#btn-today').hidden = state.mode === 'today';
     renderState();
@@ -720,23 +527,16 @@
 
   function syncActionButtons(v) {
     const s = saved.has(v.id), w = watched.has(v.id);
-    const sb = $('#btn-save'), wb = $('#btn-watched');
-    sb.setAttribute('aria-pressed', String(s));
-    sb.textContent = s ? '♥' : '♡';
-    sb.setAttribute('aria-label', s ? 'Remove from saved' : 'Save for later');
-    sb.title = s ? 'Remove from saved' : 'Save for later';
+    [$('#btn-save'), $('#btn-w-save')].forEach(sb => {
+      sb.setAttribute('aria-pressed', String(s));
+      sb.textContent = s ? '♥' : '♡';
+      sb.setAttribute('aria-label', s ? 'Remove from saved' : 'Save for later');
+      sb.title = s ? 'Remove from saved' : 'Save for later';
+    });
+    const wb = $('#btn-watched');
     wb.setAttribute('aria-pressed', String(w));
     wb.setAttribute('aria-label', w ? 'Mark as not watched' : 'Mark as watched');
     wb.title = w ? 'Mark as not watched' : 'Mark as watched';
-  }
-
-  /* bring a card into view inside the shelf only (never scrolls the page itself) */
-  function scrollShelfTo(el) {
-    const list = $('#list');
-    if (!el || !el.isConnected || list.scrollHeight <= list.clientHeight + 1) return;
-    const top = el.offsetTop - 12;
-    const visible = top >= list.scrollTop && top + el.offsetHeight <= list.scrollTop + list.clientHeight;
-    if (!visible) list.scrollTo({ top: Math.max(0, top), behavior: reduceMotion() ? 'auto' : 'smooth' });
   }
 
   let swapToken = 0;
@@ -749,17 +549,43 @@
       if (state.history.length > 40) state.history.shift();
     }
     state.current = v; state.mode = mode; state.chosen = chosen;
+    state.env = null;
+    $$('.env').forEach(e => e.classList.remove('on'));
+    FX.setForm(formOf(v), !prev);
     syncBack();
     if (prev && prev !== v) updateCard(prev);
     updateCard(v);
-    if (animate && !chosen) scrollShelfTo(cardEls.get(v.id));
 
     const main = $('#f-main');
     const apply = () => { if (tok !== swapToken) return; fillFeature(state.current, animate); main.classList.remove('swapping'); };
-    if (animate && !reduceMotion()) { main.classList.add('swapping'); setTimeout(apply, 190); }
+    if (animate && !reduceMotion() && state.view === 'today') { main.classList.add('swapping'); setTimeout(apply, 190); }
     else apply();
     verify(v, true);
   }
+
+  /* ───────────────────────────── views ──────────────────────────── */
+  const TITLES = { today: 'WANDERSPACE', explore: 'Explore · WANDERSPACE', saved: 'Saved · WANDERSPACE', watch: 'WANDERSPACE' };
+  let pauseTimer = 0;
+  function setView(name, { scroll = true, hash = true } = {}) {
+    const lib = name === 'explore' || name === 'saved';
+    state.view = name;
+    $('#view-today').hidden = name !== 'today';
+    $('#view-library').hidden = !lib;
+    $('#view-watch').hidden = name !== 'watch';
+    document.body.dataset.view = name === 'today' ? 'today' : 'other';
+    $$('.links a').forEach(a => a.classList.toggle('on', a.dataset.viewLink === name || (name === 'watch' && a.dataset.viewLink === state.from)));
+    FX.setView(name === 'today' ? 'today' : 'other');
+    if (name !== 'watch') { clearTimeout(pauseTimer); FX.resume(); }
+    if (lib) renderLibrary();
+    if (hash && name !== 'watch') { try { history.replaceState(null, '', '#' + name); } catch (e) { /* ignore */ } }
+    document.title = TITLES[name] || TITLES.today;
+    if (scroll) window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+
+  const routeFromHash = () => {
+    const h = location.hash.replace('#', '');
+    if (h === 'explore' || h === 'saved' || h === 'today') { if (state.view === 'watch') leaveWatch(true); setView(h, { hash: false }); }
+  };
 
   /* ───────────────────────────── actions ────────────────────────── */
   function spin(btn) {
@@ -772,6 +598,10 @@
     const b = $('#btn-back');
     if (b) b.hidden = !state.history.some(h => h.v !== state.current && !h.v.blocked && !h.v.dead);
   }
+  function toToday() {
+    if (state.view === 'watch') leaveWatch(true);
+    if (state.view !== 'today') setView('today');
+  }
   function goBack() {
     let h;
     while ((h = state.history.pop())) {
@@ -779,13 +609,15 @@
       h = null;
     }
     if (!h) { syncBack(); return; }
+    toToday();
     spin($('#btn-back'));
     state.notice = '';
     show(h.v, h.mode, { animate: true, chosen: h.chosen, fromHistory: true });
   }
   function refresh() {
     const v = nextRandom();
-    if (!v) { setNotice('NOTHING ELSE ON THE SHELF YET'); return; }
+    if (!v) { setNotice('Nothing else on the shelf yet'); return; }
+    toToday();
     spin($('#btn-refresh')); spin($('#btn-refresh-2'));
     FX.pulse();
     state.notice = '';
@@ -794,6 +626,7 @@
   function backToToday() {
     const v = dailyPick();
     if (!v) return;
+    toToday();
     state.notice = '';
     FX.pulse();
     show(v, 'today', { animate: true });
@@ -803,7 +636,7 @@
     if (saved.has(v.id)) saved.delete(v.id); else saved.add(v.id);
     store(KEYS.saved, Array.from(saved));
     syncActionButtons(v); renderState(); updateCard(v);
-    if (state.filter === 'saved') renderList();
+    if (state.view === 'saved') renderGrid();
   }
   function toggleWatched() {
     const v = state.current; if (!v) return;
@@ -811,31 +644,38 @@
     store(KEYS.watched, Array.from(watched));
     syncActionButtons(v); renderState(); updateCard(v);
   }
-  function saveNote() {
-    const text = $('#note').value.trim();
+  function saveNote(from) {
+    const ta = $(from === 'watch' ? '#w-note' : '#note');
+    const text = ta.value.trim();
     const key = localDayKey();
     if (text) notes[key] = text; else delete notes[key];
     const ok = store(KEYS.notes, notes);
-    $('#note-status').textContent = ok ? (text ? 'Private / note saved' : 'Private / empty note') : 'Storage unavailable';
+    syncNotes();
+    if (!ok) { $('#note-status').textContent = 'Storage unavailable'; $('#w-note-status').textContent = 'Storage unavailable'; }
   }
 
-  /* ───────────────────────────── player ─────────────────────────── */
-  let lastFocus = null;
+  /* ───────────────────────────── watch page ─────────────────────── */
   function watch(v = state.current) {
     if (!v) return;
     if (IS_FILE || v.noEmbed) {
       window.open(ytUrl(v), '_blank', 'noopener,noreferrer');
-      setNotice(IS_FILE ? 'OPENED ON YOUTUBE · THE IN-PAGE PLAYER NEEDS HTTP(S)' : 'OPENED ON YOUTUBE · EMBEDDING IS OFF FOR THIS ONE');
+      setNotice(IS_FILE ? 'Opened on YouTube. The in-page player needs http(s)' : 'Opened on YouTube. Embedding is off for this one');
       return;
     }
-    openModal(v);
-  }
-  function openModal(v) {
-    lastFocus = document.activeElement;
-    const modal = $('#modal');
-    $('#m-title').textContent = v.title;
-    $('#m-yt').href = ytUrl(v);
-    const frame = $('#m-frame');
+    if (state.view !== 'watch') state.from = state.view === 'saved' ? 'saved' : state.view === 'explore' ? 'explore' : 'today';
+    $('#leave-label').textContent = state.from === 'today' ? 'Back to today' : `Back to ${state.from}`;
+    $('#w-title').textContent = v.title;
+    const meta = $('#w-meta');
+    meta.replaceChildren();
+    const by = document.createElement('b'); by.textContent = v.by;
+    meta.append(by, document.createTextNode(` · ${durLong(v)}`));
+    $('#w-blurb').textContent = v.blurb || '';
+    $('#w-ask').textContent = v.ask || '';
+    $('#w-yt').href = ytUrl(v);
+    const tags = $('#w-tags');
+    tags.replaceChildren();
+    (v.themes || []).forEach(t => { const s = document.createElement('span'); s.className = 'pill'; s.textContent = t; tags.appendChild(s); });
+    const frame = $('#w-frame');
     frame.replaceChildren();
     const f = document.createElement('iframe');
     f.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(v.id)}?autoplay=1&rel=0&playsinline=1&modestbranding=1`;
@@ -844,19 +684,18 @@
     f.referrerPolicy = 'strict-origin-when-cross-origin';
     f.allowFullscreen = true;
     frame.appendChild(f);
-    modal.hidden = false;
-    modal.setAttribute('aria-hidden', 'false');
-    FX.pause();
-    $('#btn-close').focus();
+    syncNotes();
+    syncActionButtons(v);
+    setView('watch', { hash: false });
+    /* let the background settle into its dim place, then stop drawing so the video gets the machine */
+    pauseTimer = setTimeout(() => { if (state.view === 'watch') FX.pause(); }, 1600);
   }
-  function closeModal() {
-    const modal = $('#modal');
-    if (modal.hidden) return;
-    $('#m-frame').replaceChildren();
-    modal.hidden = true;
-    modal.setAttribute('aria-hidden', 'true');
+  function leaveWatch(quiet) {
+    if (state.view !== 'watch') return;
+    $('#w-frame').replaceChildren();
+    clearTimeout(pauseTimer);
     FX.resume();
-    if (lastFocus && document.contains(lastFocus)) lastFocus.focus();
+    if (!quiet) setView(state.from || 'today');
   }
 
   /* ───────────────────────────── wiring ─────────────────────────── */
@@ -879,33 +718,51 @@
     $('#btn-play').addEventListener('click', e => { e.stopPropagation(); watch(); });
     $('#art').addEventListener('click', () => watch());
     $('#btn-save').addEventListener('click', toggleSaved);
+    $('#btn-w-save').addEventListener('click', toggleSaved);
     $('#btn-watched').addEventListener('click', toggleWatched);
-    $('#btn-note').addEventListener('click', saveNote);
-    $('#note').addEventListener('keydown', e => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') saveNote(); });
-    $('#note').addEventListener('blur', () => { if ($('#note').value.trim() !== (notes[localDayKey()] || '')) saveNote(); });
-    $('#btn-close').addEventListener('click', closeModal);
-    $('[data-close]').addEventListener('click', closeModal);
+    $('#btn-leave').addEventListener('click', () => leaveWatch());
+
+    $$('[data-view-link]').forEach(a => a.addEventListener('click', e => {
+      e.preventDefault();
+      const name = a.dataset.viewLink;
+      if (state.view === 'watch') leaveWatch(true);
+      if (name === 'explore') state.filter = state.filter === 'saved' ? 'all' : state.filter;
+      setView(name);
+    }));
+    window.addEventListener('hashchange', routeFromHash);
+
+    $$('.env').forEach(b => b.addEventListener('click', () => {
+      state.env = b.dataset.form;
+      FX.setForm(b.dataset.form);
+      FX.pulse();
+      $$('.env').forEach(x => x.classList.toggle('on', x === b));
+      window.scrollTo({ top: 0, behavior: reduceMotion() ? 'instant' : 'smooth' });
+    }));
+
+    [['#note', '#note-count', 'today', '#btn-note'], ['#w-note', '#w-note-count', 'watch', '#btn-w-note']].forEach(([t, c, from, btn]) => {
+      const ta = $(t);
+      ta.addEventListener('input', () => { $(c).textContent = String(ta.value.length); });
+      ta.addEventListener('keydown', e => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') saveNote(from); });
+      ta.addEventListener('blur', () => { if (ta.value.trim() !== (notes[localDayKey()] || '')) saveNote(from); });
+      $(btn).addEventListener('click', () => saveNote(from));
+    });
 
     document.addEventListener('click', e => {
       const panel = $('#theme-panel');
       if (!panel.hidden && !panel.contains(e.target) && !$('#btn-theme').contains(e.target)) toggleThemePanel(false);
     });
     document.addEventListener('keydown', e => {
-      const modalOpen = !$('#modal').hidden;
-      if (e.key === 'Escape') { if (modalOpen) closeModal(); else toggleThemePanel(false); return; }
-      if (modalOpen && e.key === 'Tab') {
-        const f = $$('button, a[href]', $('#modal')).filter(x => !x.hidden);
-        if (!f.length) return;
-        const first = f[0], last = f[f.length - 1];
-        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      if (e.key === 'Escape') {
+        if (!$('#theme-panel').hidden) toggleThemePanel(false);
+        else if (state.view === 'watch') leaveWatch();
         return;
       }
-      if (modalOpen || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
       const t = e.target;
       if (t && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT')) return;
+      if (e.key === 'c' || e.key === 'C') { toggleThemePanel(); return; }
+      if (state.view === 'watch') return;
       if (e.key === 'r' || e.key === 'R') refresh();
-      else if (e.key === 'c' || e.key === 'C') toggleThemePanel();
       else if (e.key === 't' || e.key === 'T') backToToday();
       else if (e.key === 'b' || e.key === 'B') goBack();
     });
@@ -913,11 +770,8 @@
 
   function init() {
     $('#counter').textContent = pad2(VIDEOS.length);
-    $('#counter').setAttribute('aria-label', `${VIDEOS.length} videos on the shelf`);
     buildThemePanel();
     setTheme(theme.id || 'lavender', theme.custom, { persist: false, snap: true });
-    renderTags();
-    renderList();
     wire();
     updateCountdown();
     setInterval(updateCountdown, 1000);
@@ -925,6 +779,9 @@
     const first = dailyPick();
     if (first) { state.recent.push(first.id); show(first, 'today', { animate: false }); }
     else $('#f-title').textContent = 'No videos on the shelf yet.';
+
+    const h = location.hash.replace('#', '');
+    if (h === 'explore' || h === 'saved') setView(h, { scroll: false, hash: false }); else setView('today', { scroll: false, hash: false });
 
     let dayKey = localDayKey();
     setInterval(() => {

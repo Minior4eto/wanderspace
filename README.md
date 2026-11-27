@@ -63,4 +63,4 @@ Use `secs:null` if you don't know the length.
 
 ## Files
 
-`index.html`, `styles.css`, `app.js`, `videos.js`, `channels.json`, `scripts/discover.mjs`, `.github/workflows/discover.yml`, `vendor/three.min.js` (three.js r150), `assets/favicon.svg`.
+`index.html`, `styles.css`, `app.js`, `scene.js` (the 3D environments), `videos.js`, `channels.json`, `scripts/discover.mjs`, `.github/workflows/discover.yml`, `vendor/three.min.js` (three.js r150), `assets/favicon.svg`.
