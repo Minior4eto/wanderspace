@@ -26,26 +26,33 @@ export function makeLlm(key, { fetchImpl = fetch, sleep = wait, log = () => {}, 
       log(`Gemini models to try: ${models.join(', ')}`);
     } catch (err) { log(`Gemini model list error: ${err.message}`); }
   }
-  async function post(path, body) {
-    for (let attempt = 1; attempt <= tries; attempt++) {
+  /* returns { json } on success, or { status, perDay } on failure. Rate limits (429) are never waited out here:
+     the caller moves to another model, and only an overloaded model (503) gets one quick second try. */
+  async function post(path, body, { retry503 = 1, wait429 = 0 } = {}) {
+    for (let attempt = 0; attempt <= Math.max(retry503, wait429); attempt++) {
       try {
         const r = await fetchImpl(BASE + path, {
           method: 'POST',
           headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json' },
           body: JSON.stringify(body)
         });
-        if (r.ok) return await r.json();
-        const text = (await r.text().catch(() => '')).slice(0, 200).replace(/\s+/g, ' ');
-        log(`Gemini HTTP ${r.status}: ${text}`);
-        if (r.status !== 429 && r.status < 500) return null;
-        const after = Number(r.headers?.get?.('retry-after'));
-        await sleep(Math.min(Number.isFinite(after) && after > 0 ? after * 1000 : 4000 * attempt, 20000));
+        if (r.ok) return { json: await r.json() };
+        const raw = (await r.text().catch(() => '')).replace(/\s+/g, ' ');
+        log(`Gemini HTTP ${r.status}: ${raw.slice(0, 160)}`);
+        const perDay = /PerDay|per day/i.test(raw);
+        if (r.status === 429) {
+          if (attempt < wait429 && !perDay) { await sleep(62000); continue; }
+          return { status: 429, perDay };
+        }
+        if (r.status >= 500 && attempt < retry503) { await sleep(3000); continue; }
+        return { status: r.status };
       } catch (err) {
         log(`Gemini error: ${err.message}`);
-        await sleep(5000);
+        if (attempt >= retry503) return { status: 0 };
+        await sleep(3000);
       }
     }
-    return null;
+    return { status: 0 };
   }
   return {
     async chat(messages, { temperature = 0 } = {}) {
@@ -59,22 +66,23 @@ export function makeLlm(key, { fetchImpl = fetch, sleep = wait, log = () => {}, 
       if (!listed) await discoverModels();
       for (const m of models) {
         if (coolUntil[m] > Date.now()) continue;
-        const j = await post(`${m}:generateContent`, body);
-        const text = j?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('');
+        const r = await post(`${m}:generateContent`, body);
+        const text = r.json?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('');
         if (text) return text;
-        coolUntil[m] = Date.now() + 120000;
+        coolUntil[m] = Date.now() + (r.perDay ? 6 * 3600e3 : r.status === 429 ? 90e3 : r.status === 404 ? 6 * 3600e3 : 60e3);
         log(`Model ${m} is not answering, trying the next one`);
       }
       return null;
     },
     async embed(texts) {
       const out = [];
-      for (let i = 0; i < texts.length; i += 100) {
-        const batch = texts.slice(i, i + 100);
-        const j = await post('gemini-embedding-001:batchEmbedContents', {
+      /* the free tier counts every text, about 100 a minute, so wait out a rate limit once per batch */
+      for (let i = 0; i < texts.length; i += 80) {
+        const batch = texts.slice(i, i + 80);
+        const r = await post('gemini-embedding-001:batchEmbedContents', {
           requests: batch.map(t => ({ model: 'models/gemini-embedding-001', content: { parts: [{ text: t }] }, taskType: 'SEMANTIC_SIMILARITY' }))
-        });
-        const e = j?.embeddings;
+        }, { retry503: 1, wait429: 3 });
+        const e = r.json?.embeddings;
         if (!Array.isArray(e) || e.length !== batch.length) return null;
         out.push(...e.map(x => x.values));
       }

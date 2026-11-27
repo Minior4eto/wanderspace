@@ -272,13 +272,23 @@ async function main() {
   console.log(`Similarity measured with ${kind}. Closest to the shelf:`);
   for (const c of scored.slice(0, 15))
     console.log(`  ${c.score.toFixed(3)}  ${c.v.snippet.channelTitle} — ${c.v.snippet.title}  [like: ${seeds[c.near[0]]?.title}]`);
-  const toJudge = scored.slice(0, +process.env.JUDGE_LIMIT || 40);
+  /* at most 3 per channel go to the judge, so one favourite channel cannot use up the whole budget */
+  const perCh = {}, toJudge = [];
+  for (const c of scored) {
+    const ch = c.v.snippet.channelId;
+    if ((perCh[ch] = (perCh[ch] || 0) + 1) > 3) continue;
+    toJudge.push(c);
+    if (toJudge.length >= (+process.env.JUDGE_LIMIT || 40)) break;
+  }
 
   // 4. The judge has the last word, and sees which loved videos each one resembles.
   const PACE = process.env.PACE_MS !== undefined ? +process.env.PACE_MS : 6500;
   const accepted = [];
   let answered = 0, misses = 0;
+  const deadline = Date.now() + (+process.env.JUDGE_BUDGET_MS || 13 * 60e3);
   for (const c of toJudge) {
+    if (Date.now() > deadline) { console.log('Out of time for judging, using what was found so far.'); break; }
+    if (accepted.length >= 10) { console.log('Found plenty, stopping the judge here.'); break; }
     const v = c.v;
     const verdict = await judge(v, taste, llm, { near: c.near.map(i => seeds[i].title) });
     if (!verdict) {
