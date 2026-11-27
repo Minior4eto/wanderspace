@@ -1,6 +1,6 @@
 // "Is this video like the ones already on the shelf?" as a number.
 // Every video becomes a vector; a candidate scores high when it sits close to the loved videos
-// and low when it sits close to the hated ones. Uses free GitHub Models embeddings when they
+// and low when it sits close to the hated ones. Uses free Gemini embeddings when they
 // answer, and falls back to plain TF-IDF word matching so the bot still works without them.
 import { clip } from './judge.mjs';
 

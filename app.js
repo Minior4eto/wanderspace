@@ -176,7 +176,7 @@
 
   /* ───────────────────────────── 3D scene ───────────────────────── */
   const FX = (() => {
-    const noop = { setColors() {}, setForm() {}, setView() {}, pulse() {}, pause() {}, resume() {} };
+    const noop = { setColors() {}, setForm() {}, setView() {}, setScroll() {}, setLow() {}, pulse() {}, pause() {}, resume() {} };
     const scene = window.WanderScene && window.WanderScene.create($('#bg'), { still: reduceMotion() });
     if (!scene || !scene.ok) { document.body.classList.add('no-webgl'); return noop; }
     return scene;
@@ -219,6 +219,83 @@
     const input = $('#custom-colour');
     if (id === 'custom') input.value = theme.custom;
     if (persist) store(KEYS.theme, theme);
+    if (!snap && id !== 'drift') starTrail();
+  }
+
+  /* little stars fly off the colour dot when the colour changes */
+  let trailAt = 0;
+  function starTrail() {
+    const now = performance.now();
+    if (reduceMotion() || now - trailAt < 350) return;
+    trailAt = now;
+    const r = $('#btn-theme').getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    for (let i = 0; i < 10; i++) {
+      const s = document.createElement('span'); s.className = 'spark'; s.style.left = cx + 'px'; s.style.top = cy + 'px';
+      document.body.appendChild(s);
+      const a = Math.random() * Math.PI * 2, d = 30 + Math.random() * 46;
+      const an = s.animate([{ transform: 'translate(0,0) scale(1)', opacity: 1 }, { transform: `translate(${Math.cos(a) * d}px, ${Math.sin(a) * d + 14}px) scale(.1)`, opacity: 0 }],
+        { duration: 650 + Math.random() * 400, easing: 'cubic-bezier(.2,.7,.2,1)', delay: i * 18 });
+      an.onfinish = () => s.remove();
+    }
+  }
+
+  /* ───────── page polish: headline, scroll-ins, glow, scroll drift ───────── */
+  function polish() {
+    const root = document.documentElement;
+    if (!reduceMotion()) root.classList.add('js');
+    const h1 = $('.hero h1');
+    if (h1 && !reduceMotion()) {
+      let i = 0;
+      const wrap = node => {
+        if (node.nodeType === 3) {
+          const frag = document.createDocumentFragment();
+          node.textContent.split(/(\s+)/).forEach(p => {
+            if (!p) return;
+            if (/^\s+$/.test(p)) { frag.appendChild(document.createTextNode(' ')); return; }
+            const w = document.createElement('span'); w.className = 'word'; w.style.setProperty('--i', i++); w.textContent = p; frag.appendChild(w);
+          });
+          node.replaceWith(frag);
+        } else if (node.nodeName === 'EM') { node.classList.add('word'); node.style.setProperty('--i', i++); }
+      };
+      Array.from(h1.childNodes).forEach(wrap);
+    }
+    if (!reduceMotion() && 'IntersectionObserver' in window) {
+      const items = [['.reflect-copy', 0], ['.reflect .panel', 120], ['.spaces h2', 0], ['.spaces .lead', 60], ['.foot', 0]];
+      const els = [];
+      items.forEach(([sel, d]) => $$(sel).forEach(el => { el.style.setProperty('--d', d + 'ms'); els.push(el); }));
+      $$('.env').forEach((el, k) => { el.style.setProperty('--d', k * 110 + 'ms'); els.push(el); });
+      const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: 0.12 });
+      els.forEach(el => { el.classList.add('reveal'); io.observe(el); });
+    }
+    /* cursor glow on cards and buttons */
+    if (window.matchMedia('(hover: hover)').matches) {
+      document.addEventListener('pointermove', e => {
+        const t = e.target.closest && e.target.closest('.card, .btn, .env, .panel');
+        if (!t) return;
+        const r = t.getBoundingClientRect();
+        t.style.setProperty('--mx', (e.clientX - r.left) + 'px'); t.style.setProperty('--my', (e.clientY - r.top) + 'px');
+      }, { passive: true });
+    }
+    /* the scene drifts as the page scrolls */
+    let ticking = false;
+    window.addEventListener('scroll', () => {
+      document.body.classList.toggle('scrolled', window.scrollY > 24);
+      if (ticking || state.view !== 'today') return;
+      ticking = true;
+      requestAnimationFrame(() => { ticking = false; FX.setScroll(Math.min(1, window.scrollY / Math.max(1, window.innerHeight * 0.9))); });
+    }, { passive: true });
+  }
+
+  /* the thumbnail grows into the player */
+  function growFrom(rect) {
+    const f = $('#w-frame');
+    if (!rect || reduceMotion() || !f.animate) return;
+    const to = f.getBoundingClientRect();
+    if (!to.width || !rect.width) return;
+    const sx = rect.width / to.width, sy = rect.height / to.height;
+    f.style.transformOrigin = 'top left';
+    f.animate([{ transform: `translate(${rect.left - to.left}px, ${rect.top - to.top}px) scale(${sx}, ${sy})`, opacity: .6 }, { transform: 'none', opacity: 1 }],
+      { duration: 640, easing: 'cubic-bezier(.2,.7,.2,1)' });
   }
 
   function buildThemePanel() {
@@ -575,6 +652,7 @@
     document.body.dataset.view = name === 'today' ? 'today' : 'other';
     $$('.links a').forEach(a => a.classList.toggle('on', a.dataset.viewLink === name || (name === 'watch' && a.dataset.viewLink === state.from)));
     FX.setView(name === 'today' ? 'today' : 'other');
+    FX.setScroll(name === 'today' ? Math.min(1, window.scrollY / Math.max(1, window.innerHeight * 0.9)) : 0);
     if (name !== 'watch') { clearTimeout(pauseTimer); FX.resume(); }
     if (lib) renderLibrary();
     if (hash && name !== 'watch') { try { history.replaceState(null, '', '#' + name); } catch (e) { /* ignore */ } }
@@ -662,6 +740,11 @@
       setNotice(IS_FILE ? 'Opened on YouTube. The in-page player needs http(s)' : 'Opened on YouTube. Embedding is off for this one');
       return;
     }
+    let srcRect = null;
+    if (state.view !== 'watch') {
+      const src = state.view === 'today' ? $('#art') : document.querySelector(`.card[data-id="${v.id}"] .thumb`);
+      if (src) srcRect = src.getBoundingClientRect();
+    }
     if (state.view !== 'watch') state.from = state.view === 'saved' ? 'saved' : state.view === 'explore' ? 'explore' : 'today';
     $('#leave-label').textContent = state.from === 'today' ? 'Back to today' : `Back to ${state.from}`;
     $('#w-title').textContent = v.title;
@@ -687,6 +770,7 @@
     syncNotes();
     syncActionButtons(v);
     setView('watch', { hash: false });
+    growFrom(srcRect);
     /* let the background settle into its dim place, then stop drawing so the video gets the machine */
     pauseTimer = setTimeout(() => { if (state.view === 'watch') FX.pause(); }, 1600);
   }
@@ -773,6 +857,7 @@
     buildThemePanel();
     setTheme(theme.id || 'lavender', theme.custom, { persist: false, snap: true });
     wire();
+    polish();
     updateCountdown();
     setInterval(updateCountdown, 1000);
 

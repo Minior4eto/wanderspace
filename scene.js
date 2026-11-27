@@ -121,6 +121,43 @@
     scene.add(stage);
     stage.add(dust);
 
+    /* ── dust that carries one shape into the next ── */
+    const NB = mobile ? 1400 : 3200;
+    const bDir = new Float32Array(NB * 3), bR = new Float32Array(NB * 4), bPos = new Float32Array(NB * 3);
+    for (let i = 0; i < NB; i++) {
+      const u = Math.random() * 2 - 1, a = Math.random() * 6.2832, q = Math.sqrt(1 - u * u);
+      bDir.set([q * Math.cos(a), u, q * Math.sin(a)], i * 3);
+      bR.set([Math.random(), Math.random(), Math.random(), Math.random()], i * 4);
+    }
+    const bg = new THREE.BufferGeometry();
+    bg.setAttribute('position', new THREE.BufferAttribute(bPos, 3));
+    bg.setAttribute('aDir', new THREE.BufferAttribute(bDir, 3));
+    bg.setAttribute('aR', new THREE.BufferAttribute(bR, 4));
+    const burst = new THREE.Points(bg, new THREE.ShaderMaterial({
+      uniforms: own({ uBurst: { value: 0 }, uShapeA: { value: new THREE.Vector3(1, 1, 1) }, uShapeB: { value: new THREE.Vector3(1, 1, 1) } }),
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      vertexShader: `uniform float uBurst, uPx, uTime; uniform vec3 uShapeA, uShapeB; attribute vec3 aDir; attribute vec4 aR; varying float vA;
+        void main(){
+          float t = uBurst;
+          vec3 d = aDir * pow(aR.x, .33);
+          vec3 A = d * uShapeA, B = d * uShapeB;
+          float m = smoothstep(.18, .82, t + (aR.y - .5) * .3);
+          vec3 p = mix(A, B, m);
+          float sw = sin(3.14159 * t);
+          vec3 tang = normalize(vec3(-aDir.z, .25, aDir.x));
+          p += tang * sw * (.5 + aR.z) * 1.1 + (aR.xyz - .5) * sw * 1.4;
+          vA = sw * (.35 + .65 * aR.w);
+          vec4 mv = modelViewMatrix * vec4(p, 1.); gl_Position = projectionMatrix * mv;
+          gl_PointSize = (1.6 + 2.6 * aR.w) * uPx * (7. / -mv.z) * (.6 + sw);
+        }`,
+      fragmentShader: `uniform vec3 uAccent; uniform float uDim; varying float vA;
+        void main(){ vec2 c = gl_PointCoord*2.-1.; float d = dot(c,c); if(d>1.) discard;
+          gl_FragColor = vec4(mix(uAccent, vec3(1.), .45) * smoothstep(1., 0., d) * vA * (.5 + .5*uDim), 1.); }`
+    }));
+    burst.frustumCulled = false; burst.visible = false;
+    stage.add(burst);
+    const SHAPE = { eclipse: [1.05, 1.05, .4], shards: [1.3, 1.3, 1.1], ribbon: [1.5, 1.1, .8], tree: [1.2, 1.5, .6] };
+
     const halo = new THREE.Mesh(
       new THREE.PlaneGeometry(14, 14),
       new THREE.ShaderMaterial({
@@ -136,7 +173,7 @@
     /* a lit, translucent surface: dark body, glowing fresnel edge, a thin specular glint */
     function glass(glassAmount, wob, extra, solid) {
       return new THREE.ShaderMaterial({
-        uniforms: own(Object.assign({ uShow: { value: 0 }, uGlass: { value: glassAmount }, uWob: { value: wob }, uSolid: { value: solid ? 1 : 0 } }, extra || {})),
+        uniforms: own(Object.assign({ uShow: { value: 0 }, uGlass: { value: glassAmount }, uWob: { value: wob }, uSolid: { value: solid ? 1 : 0 }, uRun: { value: 0 } }, extra || {})),
         transparent: true, depthWrite: !!solid, blending: solid ? THREE.NormalBlending : THREE.AdditiveBlending, side: solid ? THREE.FrontSide : THREE.DoubleSide,
         polygonOffset: !!solid, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
         vertexShader: `${NOISE}
@@ -150,8 +187,8 @@
             vN = normalize(normalMatrix*n); vV = -mv.xyz; vP = p; vU = aU;
             gl_Position = projectionMatrix*mv;
           }`,
-        fragmentShader: `
-          uniform vec3 uAccent, uBase; uniform float uShow, uDim, uGlass, uTime, uSolid;
+        fragmentShader: `${NOISE}
+          uniform vec3 uAccent, uBase; uniform float uShow, uDim, uGlass, uTime, uSolid, uRun;
           varying vec3 vN; varying vec3 vV; varying vec3 vP; varying float vU;
           void main(){
             vec3 N = normalize(vN); if(!gl_FrontFacing) N = -N;
@@ -164,10 +201,13 @@
             float band = .5+.5*sin(vU*46. + uTime*.35 + nv*5.);
             vec3 hot = mix(uAccent, vec3(1.), .55);
             vec3 R = reflect(-V, N);
-            float env = smoothstep(-.3,.9, R.y*.7 + R.x*.35);
+            float sh = snoise(R*1.6 + vec3(0., uTime*.07, 0.));
+            float env = smoothstep(-.3,.9, R.y*.7 + R.x*.35 + sh*.5*uSolid);
+            float run = pow(max(0., sin((vU - uTime*.045)*25.13)), 22.);
             float env2 = smoothstep(.55,.98, dot(R, normalize(vec3(.6,.25,.75))));
             vec3 col = uBase*(.03+.20*diff*diff) + uAccent*f*1.0 + hot*band*f*.25 + vec3(1.)*spec*.22;
             col += (uAccent*env*.34 + vec3(1.)*env2*.30) * uSolid;
+            col += hot * run * (.25 + f) * uRun * .9;
             float alpha = mix(1., .16 + f*.84, uGlass);
             if (uSolid > .5) gl_FragColor = vec4(col*uDim, uShow);
             else gl_FragColor = vec4(col*uShow*uDim, alpha*uShow);
@@ -221,7 +261,8 @@
               float halo = exp(-max(edge,0.)*(3.4-1.8*side)) * step(0., edge);
               float streak = .6 + .4*snoise(vec3(cos(a)*2.4, sin(a)*2.4, uTime*.07 + r*.8));
               float breathe = .92+.08*sin(uTime*.5);
-              float I = (ring*(.35+1.35*side) + halo*(.10+.55*side)*streak) * breathe * (1.+uPulse*.8);
+              float rays = .55 + .45*snoise(vec3(cos(a)*4.5, sin(a)*4.5, uTime*.05 + 3.)) * snoise(vec3(cos(a)*1.7, sin(a)*1.7, r*.5 - uTime*.02));
+              float I = (ring*(.35+1.35*side) + halo*(.10+.55*side)*streak*clamp(rays,.12,1.2)) * breathe * (1.+uPulse*.8);
               vec3 col = mix(uAccent, vec3(1.), ring*side*.55);
               gl_FragColor = vec4(col*I*uShow*uDim, 1.);
             }`
@@ -229,6 +270,23 @@
       );
       corona.position.z = -0.7; corona.renderOrder = 0;
       g.add(corona);
+      /* stars that flicker on in the ring of light, one after another */
+      const nS = mobile ? 24 : 48, sp = new Float32Array(nS * 3), sph = new Float32Array(nS);
+      for (let i = 0; i < nS; i++) {
+        const a = 2.3 + (Math.random() - .5) * 2.8, r = 1.04 + Math.random() * 0.55;
+        sp.set([Math.cos(a) * r, Math.sin(a) * r, -0.2], i * 3); sph[i] = Math.random();
+      }
+      const sg = new THREE.BufferGeometry();
+      sg.setAttribute('position', new THREE.BufferAttribute(sp, 3)); sg.setAttribute('aP', new THREE.BufferAttribute(sph, 1));
+      const ringStars = new THREE.Points(sg, new THREE.ShaderMaterial({
+        uniforms: own({ uShow: { value: 0 } }), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+        vertexShader: `uniform float uTime, uPx; attribute float aP; varying float vA;
+          void main(){ float tw = pow(max(0., sin(uTime*.23 + aP*6.2832)), 6.); vA = tw; vec4 mv = modelViewMatrix*vec4(position,1.); gl_Position = projectionMatrix*mv; gl_PointSize = (2.5 + 7.*tw)*uPx*(7.2/-mv.z); }`,
+        fragmentShader: `uniform vec3 uAccent; uniform float uShow, uDim; varying float vA;
+          void main(){ vec2 c = gl_PointCoord*2.-1.; float d = dot(c,c); if(d>1.) discard; gl_FragColor = vec4(mix(uAccent, vec3(1.), .65)*smoothstep(1.,0.,d)*vA*uShow*uDim, 1.); }`
+      }));
+      ringStars.frustumCulled = false;
+      g.add(ringStars);
       /* an orbiting moon on a thin tilted ring */
       const orbit = new THREE.Group(); orbit.rotation.set(1.18, 0.18, -0.38);
       const ringMat = glass(1, 0, {});
@@ -237,7 +295,7 @@
       orbit.add(ring, moon);
       g.add(orbit);
       forms.eclipse = {
-        group: g, mats: [body.material, corona.material, ringMat, moon.material], scale: 1.05,
+        group: g, mats: [body.material, corona.material, ringMat, moon.material, ringStars.material], scale: 1.05,
         update(t) { moon.position.set(Math.cos(t * 0.11) * 1.8, Math.sin(t * 0.11) * 1.8, 0); body.rotation.y = t * 0.01; }
       };
     })();
@@ -263,8 +321,21 @@
           rot0: new V3(Math.random() * TAU, Math.random() * TAU, Math.random() * TAU), dev: new V3((Math.random() - .5) * 2.4, (Math.random() - .5) * 2.4, (Math.random() - .5) * 2.4), ph: Math.random() * TAU });
         g.add(m);
       }
+      /* thin threads between neighbours: they light up as the pieces drift apart, as if the mirror remembers being whole */
+      const pairs = [];
+      items.forEach((a, i) => {
+        items.map((b, j) => [j, a.home.distanceTo(b.home)]).filter(x => x[0] !== i).sort((p, q) => p[1] - q[1]).slice(0, 2)
+          .forEach(([j]) => { if (!pairs.some(p => (p[0] === i && p[1] === j) || (p[0] === j && p[1] === i))) pairs.push([i, j]); });
+      });
+      const lp = new Float32Array(pairs.length * 6), lc = new Float32Array(pairs.length * 6);
+      const lg = new THREE.BufferGeometry();
+      lg.setAttribute('position', new THREE.BufferAttribute(lp, 3).setUsage(THREE.DynamicDrawUsage));
+      lg.setAttribute('color', new THREE.BufferAttribute(lc, 3).setUsage(THREE.DynamicDrawUsage));
+      const lmat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+      const threads = new THREE.LineSegments(lg, lmat); threads.frustumCulled = false;
+      g.add(threads);
       forms.shards = {
-        group: g, mats: [mat], edge, scale: 0.8,
+        group: g, mats: [mat], edges: [edge, lmat], scale: 0.8, threads,
         update(t, pulse) {
           const gather = 0.5 + 0.5 * Math.sin(t * 0.21);          /* 0 = assembled, 1 = scattered */
           const spread = 0.04 + 0.72 * gather * gather + pulse * 0.5;
@@ -274,6 +345,14 @@
             it.m.rotation.set(it.rot0.x + it.dev.x * spread + t * 0.03, it.rot0.y + it.dev.y * spread + t * 0.04, it.rot0.z + it.dev.z * spread);
           }
           g.rotation.y = t * 0.05;
+          const ac = U.uAccent.value;
+          for (let k = 0; k < pairs.length; k++) {
+            const a = items[pairs[k][0]].m.position, b = items[pairs[k][1]].m.position, d = a.distanceTo(b);
+            const w = Math.max(0, Math.min(1, (d - 0.45) / 0.9)) * (1 - Math.max(0, Math.min(1, (d - 2.0) / 1.0)));
+            lp.set([a.x, a.y, a.z, b.x, b.y, b.z], k * 6);
+            lc.set([ac.x * w, ac.y * w, ac.z * w, ac.x * w, ac.y * w, ac.z * w], k * 6);
+          }
+          lg.attributes.position.needsUpdate = true; lg.attributes.color.needsUpdate = true;
         }
       };
     })();
@@ -308,7 +387,7 @@
       geo.setAttribute('aU', new THREE.Float32BufferAttribute(uv, 1));
       geo.setIndex(idx);
       geo.computeVertexNormals();
-      const mat = glass(1, 0.018, {});
+      const mat = glass(1, 0.018, { uRun: { value: 1 } });
       g.add(new THREE.Mesh(geo, mat));
       const pts = []; for (let i = 0; i < 160; i++) pts.push(C((i / 160) * TAU));
       const spine = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true), 480, 0.011, 6, true), glass(1, 0, {}));
@@ -380,6 +459,9 @@
             float edge = pow(1. - abs(vSide), 1.6);
             float depthGlow = 1. - vMeta.x;
             vec3 col = mix(uAccent, vec3(1.), .25 + .45*depthGlow*depthGlow) * (.5 + 1.1*depthGlow);
+            float ph = fract(uTime*.11 - vMeta.y*.85);
+            float pls = smoothstep(0., .03, ph) * (1. - smoothstep(.03, .22, ph));
+            col *= 1. + 2.6*pls;
             float pulse = .8 + .2*sin(uTime*1.3 + vMeta.y*30.);
             gl_FragColor = vec4(col*edge*reveal*gone*pulse*uShow*uDim, edge*reveal*gone*uShow);
           }`
@@ -395,11 +477,12 @@
       tg.setAttribute('aB', new THREE.BufferAttribute(tb, 1));
       const sparks = new THREE.Points(tg, new THREE.ShaderMaterial({
         uniforms: own(gl), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-        vertexShader: `uniform float uTime, uPx; attribute float aB; varying float vB; void main(){ vB = aB; vec4 mv = modelViewMatrix*vec4(position,1.); gl_Position = projectionMatrix*mv; gl_PointSize = (7.+3.*sin(uTime*1.7+aB*40.))*uPx*(7./-mv.z); }`,
-        fragmentShader: `uniform vec3 uAccent; uniform float uGrow, uFade, uShow, uDim; varying float vB;
+        vertexShader: `uniform float uTime, uPx, uFade; attribute float aB; varying float vB; void main(){ vB = aB; vec3 pp = position + vec3(sin(aB*91.)*.5, -(.2 + fract(aB*7.)*.6), cos(aB*57.)*.5) * uFade * 1.3; vec4 mv = modelViewMatrix*vec4(pp,1.); gl_Position = projectionMatrix*mv; gl_PointSize = (7.+3.*sin(uTime*1.7+aB*40.))*uPx*(7./-mv.z); }`,
+        fragmentShader: `uniform vec3 uAccent; uniform float uGrow, uFade, uShow, uDim, uTime; varying float vB;
           void main(){ vec2 c = gl_PointCoord*2.-1.; float d = dot(c,c); if(d>1.) discard;
-            float reveal = smoothstep(vB, vB+.12, uGrow*1.35); float gone = 1.-smoothstep(vB*.7, vB*.7+.45, uFade*1.2);
-            gl_FragColor = vec4(mix(uAccent, vec3(1.), .5)*smoothstep(1.,0.,d)*reveal*gone*uShow*uDim*.9, 1.); }`
+            float reveal = smoothstep(vB, vB+.12, uGrow*1.35); float gone = 1.-smoothstep(.3, 1., uFade);
+            float ph = fract(uTime*.11 - vB*.85); float fl = smoothstep(0.,.03,ph)*(1.-smoothstep(.03,.22,ph));
+            gl_FragColor = vec4(mix(uAccent, vec3(1.), .5)*smoothstep(1.,0.,d)*reveal*gone*uShow*uDim*(.9 + 2.*fl), 1.); }`
       }));
       sparks.frustumCulled = false;
       g.add(sparks);
@@ -437,6 +520,7 @@
     pushColors();
 
     let want = 'eclipse', view = 'today', dim = 1, dimT = 1, paused = false, raf = 0, pulse = 0, last = performance.now();
+    let burstT = 1, holdUntil = 0, scrollK = 0, scrollS = 0, low = false, frames = 0, slow = 0, curShape = 'eclipse';
     const target = new THREE.Vector2(), mouse = new THREE.Vector2();
     const place = { x: 0, y: 0, s: 1 }, placeT = { x: 0, y: 0, s: 1 };
     let aspect = 1;
@@ -453,8 +537,16 @@
       }
     }
 
+    function low0() { return false; }
+    function setLow(v) {
+      low = v; dust.visible = !v;
+      if (forms.shards && forms.shards.threads) forms.shards.threads.visible = !v;
+      bg.setDrawRange(0, v ? Math.floor(NB * 0.4) : NB);
+      resize();
+    }
+
     function resize() {
-      const w = window.innerWidth, h = window.innerHeight, dpr = Math.min(window.devicePixelRatio || 1, mobile ? 1.5 : 2);
+      const w = window.innerWidth, h = window.innerHeight, dpr = low ? 1 : Math.min(window.devicePixelRatio || 1, mobile ? 1.5 : 2);
       renderer.setPixelRatio(dpr); renderer.setSize(w, h, false);
       aspect = w / Math.max(h, 1);
       camera.aspect = aspect; camera.fov = aspect < 1 ? Math.min(60, 35 + (1 - aspect) * 45) : 35;
@@ -479,23 +571,33 @@
       lerpColors(1 - Math.exp(-dt * 6));
       mouse.lerp(target, 0.06);
       const e = 1 - Math.exp(-dt * 2.6);
-      dim += (dimT - dim) * e; U.uDim.value = dim;
+      scrollS += (scrollK - scrollS) * (1 - Math.exp(-dt * 5));
+      dim += (dimT * (view === 'today' ? 1 - 0.55 * scrollS : 1) - dim) * e; U.uDim.value = dim;
+      if (burstT < 1) {
+        burstT = Math.min(1, burstT + dt / 1.9);
+        burst.material.uniforms.uBurst.value = burstT; burst.visible = burstT < 1;
+      }
+      if (!still && !paused && dt > 0) {
+        frames++; if (dt > 0.034) slow++;
+        if (frames === 150 && !low && slow > 60) setLow(true);
+      }
       place.x += (placeT.x - place.x) * e; place.y += (placeT.y - place.y) * e; place.s += (placeT.s - place.s) * e;
       const breathe = 1 + Math.sin(time * 0.42) * 0.014;
-      stage.position.set(place.x, place.y + Math.sin(time * 0.31) * 0.03, 0);
-      stage.rotation.set(mouse.y * 0.1, mouse.x * 0.16, 0);
+      stage.position.set(place.x - scrollS * 0.5, place.y + scrollS * 1.1 + Math.sin(time * 0.31) * 0.03, -scrollS * 0.8);
+      stage.rotation.set(mouse.y * 0.1 + scrollS * 0.25, mouse.x * 0.16 + scrollS * 0.7, 0);
       camera.position.set(mouse.x * 0.22, mouse.y * 0.12, CAM_Z);
       camera.lookAt(0, 0, 0);
       world.rotation.y = mouse.x * 0.03 + time * 0.0016; world.rotation.x = mouse.y * 0.015;
       for (const f of Object.values(forms)) {
-        const goal = f.name === want ? 1 : 0;
+        const goal = (f.name === want && time >= holdUntil) ? 1 : 0;
         f.mix += (goal - f.mix) * (1 - Math.exp(-dt * (goal ? 2.2 : 3.4)));
         if (f.mix < 0.004 && !goal) { f.mix = 0; f.group.visible = false; continue; }
         f.group.visible = true;
         const s = place.s * f.scale * breathe * (0.9 + 0.1 * f.mix) * (1 + pulse * 0.025);
+        if (f.name === want) burst.material.uniforms.uShapeB.value.set(...SHAPE[f.name]).multiplyScalar(s);
         f.group.scale.setScalar(s);
         f.mats.forEach(m => { m.uniforms.uShow.value = f.mix; });
-        if (f.edge) f.edge.opacity = f.mix * dim;
+        if (f.edges) f.edges.forEach(m => { m.opacity = f.mix * dim; });
         f.update(time, pulse, dt);
       }
       renderer.render(scene, camera);
@@ -519,11 +621,18 @@
       },
       setForm(name, snap) {
         if (!forms[name] || want === name) return;
-        want = name;
+        const prev = want; want = name;
         if (forms[name].restart) forms[name].restart();
+        if (!snap && !still && !low0()) {
+          const u = burst.material.uniforms;
+          u.uShapeA.value.set(...SHAPE[prev]).multiplyScalar(place.s * (forms[prev].scale || 1));
+          burstT = 0; burst.visible = true; holdUntil = time + 0.55;
+        }
         if (snap || still) { Object.values(forms).forEach(f => { f.mix = f.name === name ? 1 : 0; f.group.visible = f.mix > 0; }); if (still) drawOnce(); }
       },
       setView(name) { view = name === 'today' ? 'today' : 'other'; layout(); if (still) { place.x = placeT.x; place.y = placeT.y; place.s = placeT.s; dim = dimT; drawOnce(); } },
+      setScroll(k) { scrollK = Math.max(0, Math.min(1, k)); if (still) { scrollS = scrollK; drawOnce(); } },
+      setLow(v) { setLow(v); },
       pulse() { if (!still) { pulse = 1; if (forms[want].restart) forms[want].restart(); } },
       pause() { paused = true; },
       resume() { paused = false; last = performance.now(); if (still) drawOnce(); },
