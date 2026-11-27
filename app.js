@@ -260,9 +260,10 @@
       Array.from(h1.childNodes).forEach(wrap);
     }
     if (!reduceMotion() && 'IntersectionObserver' in window) {
-      const items = [['.reflect-copy', 0], ['.reflect .panel', 120], ['.spaces h2', 0], ['.spaces .lead', 60], ['.foot', 0]];
+      const items = [['.how .label', 0], ['.reflect-copy', 0], ['.reflect .panel', 120], ['.spaces h2', 0], ['.spaces .lead', 60], ['.foot', 0]];
       const els = [];
       items.forEach(([sel, d]) => $$(sel).forEach(el => { el.style.setProperty('--d', d + 'ms'); els.push(el); }));
+      $$('.how-grid li').forEach((el, k) => { el.style.setProperty('--d', k * 120 + 'ms'); els.push(el); });
       $$('.env').forEach((el, k) => { el.style.setProperty('--d', k * 110 + 'ms'); els.push(el); });
       const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: 0.12 });
       els.forEach(el => { el.classList.add('reveal'); io.observe(el); });
@@ -590,7 +591,7 @@
     meta.replaceChildren();
     const by = document.createElement('b');
     by.textContent = v.by;
-    meta.append(by, document.createTextNode(` · ${durLong(v)}`));
+    meta.append(by, document.createTextNode(` · ${durLong(v)}${(v.themes && v.themes[0]) ? ' · ' + v.themes[0] : ''}`));
     if (v.blocked) meta.append(document.createElement('br'), document.createTextNode('Longer than 25 minutes: shown because you picked it.'));
 
     $('#f-blurb').textContent = v.blurb || '';
@@ -641,7 +642,7 @@
   }
 
   /* ───────────────────────────── views ──────────────────────────── */
-  const TITLES = { today: 'WANDERSPACE', explore: 'Explore · WANDERSPACE', saved: 'Saved · WANDERSPACE', watch: 'WANDERSPACE' };
+  const TITLES = { today: 'WANDERSPACE · A daily philosophy video', explore: 'Explore · WANDERSPACE', saved: 'Saved · WANDERSPACE', watch: 'WANDERSPACE' };
   let pauseTimer = 0;
   function setView(name, { scroll = true, hash = true } = {}) {
     const lib = name === 'explore' || name === 'saved';

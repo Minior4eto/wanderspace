@@ -263,3 +263,16 @@ body::after {
 
 .nav { transition: background-color .35s ease, backdrop-filter .35s ease; }
 body.scrolled .nav { background: color-mix(in srgb, var(--bg) 72%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+
+.wordmark small { display: block; margin-top: 3px; font-family: var(--mono); font-size: 9px; font-weight: 400; letter-spacing: .24em; text-transform: uppercase; color: color-mix(in srgb, var(--accent) 75%, var(--text)); }
+.facts { display: flex; flex-wrap: wrap; gap: 10px 22px; margin: 26px 0 0; padding: 0; list-style: none; font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.facts li { display: flex; align-items: baseline; gap: 8px; }
+.facts b { font-family: var(--serif); font-size: 22px; font-weight: 500; letter-spacing: 0; color: var(--accent); }
+.how { padding: 80px var(--pad) 20px; }
+.how-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(18px, 3vw, 44px); margin: 34px 0 0; padding: 0; list-style: none; }
+.how-grid li { position: relative; padding: 26px 24px 28px; border: 1px solid var(--edge); border-radius: 16px; background: var(--glass); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.how-grid .n { font-family: var(--mono); font-size: 11px; letter-spacing: .2em; color: var(--accent); }
+.how-grid h3 { margin: 14px 0 10px; font-family: var(--serif); font-weight: 400; font-size: 32px; color: #fff; }
+.how-grid p { color: color-mix(in srgb, var(--text) 75%, transparent); font-size: 15px; line-height: 1.6; }
+@media (max-width: 900px) { .how-grid { grid-template-columns: 1fr; } .how { padding-top: 56px; } }
+@media (max-width: 560px) { .facts { gap: 8px 16px; } .facts b { font-size: 19px; } }
