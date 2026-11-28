@@ -1,0 +1,46 @@
+Approved channels: 16
+Learning from 24 loved video(s) and 11 hated one(s).
+  ! Gemini models to try: gemini-3.8-flash, gemini-3.7-flash, gemini-3.6-flash, gemini-3.5-flash, gemini-flash-latest, gemini-flash-lite-latest
+  ! Gemini HTTP 503: { "error": { "code": 503, "message": "This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.", "statu
+  ! Gemini HTTP 503: { "error": { "code": 503, "message": "This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.", "statu
+  ! Model gemini-3.8-flash is not answering, trying the next one
+  ! Gemini HTTP 503: { "error": { "code": 503, "message": "This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.", "statu
+  ! Gemini error: fetch failed
+  ! Model gemini-3.7-flash is not answering, trying the next one
+  ! Gemini HTTP 503: { "error": { "code": 503, "message": "This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.", "statu
+  ! Gemini HTTP 503: { "error": { "code": 503, "message": "This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.", "statu
+  ! Model gemini-3.6-flash is not answering, trying the next one
+  ! Gemini HTTP 503: { "error": { "code": 503, "message": "This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.", "statu
+  ! Gemini HTTP 503: { "error": { "code": 503, "message": "This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.", "statu
+  ! Model gemini-3.5-flash is not answering, trying the next one
+  ! Gemini HTTP 503: { "error": { "code": 503, "message": "This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.", "statu
+  ! Gemini error: fetch failed
+  ! Model gemini-flash-latest is not answering, trying the next one
+Searching for: "why ordinary life feels heavy", "the quiet grief of growing up", "animation about the myth of sisyphean struggle", "why being understood is rare", "the psychological weight of changing your mind", "what happens when the villain wins the story", "the exhaustion of constantly searching for meaning", "why letting go of ambition hurts so much", "the loneliness of becoming someone entirely new", "how old paintings capture quiet despair", "the hidden philosophy of a film", "what this painting says about death"
+765 video(s) found, 250 passed the cheap filters (26 from searches).
+  ! Gemini HTTP 429: { "error": { "code": 429, "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: 
+  ! Gemini HTTP 429: { "error": { "code": 429, "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: 
+  ! Gemini HTTP 429: { "error": { "code": 429, "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: 
+Similarity measured with embeddings. Closest to the shelf:
+  0.492  Sisyphus 55 — the unbearable lightness of being  [like: who you are is what you are when you are]
+  0.477  Sisyphus 55 — how you are ruining your brain  [like: who you are is what you are when you are]
+  0.477  Sisyphus 55 — stop overthinking this  [like: who you are is what you are when you are]
+  0.476  Sisyphus 55 — there will be no closure  [like: love cannot fix you]
+  0.476  Sisyphus 55 — the fear of enjoying your life  [like: who you are is what you are when you are]
+  0.473  Sisyphus 55 — there is no right way to live  [like: who you are is what you are when you are]
+  0.470  Alastair — The pain of becoming who you really are  [like: The pain of reinventing yourself]
+  0.469  Verse Creates — The cost of greatness  [like: The cure to feeling lost in life]
+  0.467  Sisyphus 55 — how to make things when you hate everything you make  [like: who you are is what you are when you are]
+  0.466  Pancake — My Favorite Depictions of Demons  [like: My Favorite Depictions of Death]
+  0.465  Pancake — My Favorite Depictions of Angels  [like: My Favorite Depictions of Death]
+  0.463  Verse Creates — What if it actually works out?  [like: The cure to feeling lost in life]
+  0.462  Pancake — Two Unique Depictions of Death  [like: My Favorite Depictions of Death]
+  0.462  Sisyphus 55 — this is your sign to learn a new language  [like: who you are is what you are when you are]
+  0.462  Pancake — My Favorite Movie  [like: My Favorite Depictions of Death]
+KEEP 9/10  Sisyphus 55 — the unbearable lightness of being  (From a favored creator, this essay delves into Milan Kundera's classic novel to explore existential weight and meaning.)
+drop 3/10  Sisyphus 55 — how you are ruining your brain  (The title points to self-help and lifestyle advice regarding habits and overstimulation, rather than a story-driven philosophical inquiry.)
+drop 7/10  Sisyphus 55 — stop overthinking this  (From a favorite creator, this essay uses philosophy to unpack the existential paralysis of excessive self-reflection.)
+KEEP 9/10  Alastair — The pain of becoming who you really are  (By a favored creator, this video essay explores identity, personal transformation, and the grief of outgrowing past selves.)
+KEEP 9/10  Verse Creates — The cost of greatness  (Verse Creates delivers meditative, narrative-driven existential essays, directly aligning with loved videos exploring ambition, sacrifice, and human purpose.)
+  ! Gemini HTTP 503: { "error": { "code": 503, "message": "This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.", "statu
+KEEP 8/10  Pancake — My Favorite Depictions of Demons  (Shares the reflective cinematic essay style of Pancake's beloved Death video, examining human fear and evil through monstrous archetypes.)
